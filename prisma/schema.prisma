@@ -1,0 +1,65 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Audit {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  status            String   @default("DRAFT")
+  
+  date              DateTime @default(now())
+  unitName          String
+  rabbiName         String
+  rabbiSeniority    Int      
+  rabbiIdNumber     String   
+  ncoName           String   
+  ncoSeniority      Int
+  ncoIdNumber       String
+  
+  answers           Answer[]
+  inspectors        Inspector[]
+
+  summaryEvaluation String?  @db.Text
+  recommendations   String?  @db.Text
+  finalScore        String?  
+}
+
+model Inspector {
+  id     String  @id @default(cuid())
+  name   String
+  audits Audit[] // מבקר יכול להיות בהרבה ביקורות
+}
+
+model Category {
+  id        String      @id @default(cuid())
+  name      String      
+  order     Int         
+  criteria  Criterion[]
+}
+
+model Criterion {
+  id          String   @id @default(cuid())
+  label       String   
+  type        String   @default("RADIO") 
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  answers     Answer[]
+}
+
+model Answer {
+  id          String    @id @default(cuid())
+  value       String?   
+  comment     String?   @db.Text 
+  auditId     String
+  criterionId String
+  audit       Audit     @relation(fields: [auditId], references: [id])
+  criterion   Criterion @relation(fields: [criterionId], references: [id])
+
+  @@unique([auditId, criterionId])
+}
