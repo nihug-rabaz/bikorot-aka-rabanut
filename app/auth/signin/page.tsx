@@ -4,12 +4,13 @@ import { signIn } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 import { ShieldCheck, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Suspense } from "react"
 
-export default function SignIn() {
+// 1. קומפוננטת התוכן שמשתמשת ב-useSearchParams
+function SignInContent() {
     const searchParams = useSearchParams()
     const error = searchParams.get("error")
 
-    // הודעת שגיאה מותאמת אם המשתמש לא מורשה בדאטה-בייס
     const errorMessage = error === "AccessDenied"
         ? "אין לך הרשאה לגשת למערכת. פנה למנהל להוספת המייל שלך."
         : "אירעה שגיאה בתהליך ההתחברות."
@@ -58,5 +59,18 @@ export default function SignIn() {
                 </div>
             </div>
         </div>
+    )
+}
+
+// 2. קומפוננטת העטיפה שמייצאת את הדף כראוי ל-Next.js
+export default function SignIn() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center bg-muted/30">
+                <div className="animate-pulse text-muted-foreground font-medium">טוען...</div>
+            </div>
+        }>
+            <SignInContent />
+        </Suspense>
     )
 }
