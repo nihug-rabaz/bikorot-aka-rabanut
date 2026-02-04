@@ -4,6 +4,7 @@ import { useRef, useEffect } from "react"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
+// אלו ההגדרות שהיו חסרות (ה-Interfaces)
 interface Tab {
   id: string
   label: string
@@ -30,9 +31,16 @@ export function AuditTabs({ tabs, currentTab, onTabChange }: AuditTabsProps) {
   }, [currentTab])
 
   return (
-    <nav className="sticky top-[73px] z-40 border-b border-border bg-card shadow-sm" aria-label="קטגוריות ביקורת">
+    <nav
+      className="sticky top-[73px] z-40 border-b border-border bg-card shadow-sm w-full"
+      dir="rtl"
+    >
       <ScrollArea className="w-full">
-        <div className="flex gap-1 px-2 py-2" role="tablist">
+        <div
+          className="flex flex-row items-center gap-2 px-4 py-3 min-w-max"
+          role="tablist"
+          style={{ direction: 'rtl' }} // הבטחה שהסדר הפנימי יהיה ימין לשמאל
+        >
           {tabs.map((tab) => {
             const isActive = currentTab === tab.id
             return (
@@ -43,14 +51,12 @@ export function AuditTabs({ tabs, currentTab, onTabChange }: AuditTabsProps) {
                 }}
                 role="tab"
                 aria-selected={isActive}
-                aria-controls={`panel-${tab.id}`}
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
-                  "shrink-0 rounded-md px-3 py-2 text-sm font-medium transition-all",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  "shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-all whitespace-nowrap border",
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    ? "bg-primary text-primary-foreground border-primary shadow-md scale-105"
+                    : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
                 )}
               >
                 {tab.label}
@@ -58,7 +64,7 @@ export function AuditTabs({ tabs, currentTab, onTabChange }: AuditTabsProps) {
             )
           })}
         </div>
-        <ScrollBar orientation="horizontal" className="h-2" />
+        <ScrollBar orientation="horizontal" className="hidden" />
       </ScrollArea>
     </nav>
   )

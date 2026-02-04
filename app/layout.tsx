@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/sonner"
 import { Sidebar } from "@/components/Sidebar"
+import { Providers } from "./providers" // <--- הוספנו את הייבוא הזה
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -37,14 +38,16 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl">
       <body className="font-sans antialiased">
-        <div className="flex min-h-dvh">
-          <main className="min-w-0 flex-1 pt-14 md:pt-0 md:pr-[12rem]">
-            {children}
-          </main>
-          <Sidebar />
-        </div>
-        <Analytics />
-        <Toaster />
+        <Providers> {/* <--- עטפנו את כל התוכן ב-Providers */}
+          <div className="flex min-h-dvh">
+            <main className="min-w-0 flex-1 pt-14 md:pt-0 md:pr-[12rem]">
+              {children}
+            </main>
+            <Sidebar />
+          </div>
+          <Analytics />
+          <Toaster />
+        </Providers>
       </body>
     </html>
   )

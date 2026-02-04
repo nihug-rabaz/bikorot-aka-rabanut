@@ -36,14 +36,13 @@ export function AuditNavigation({
           <ChevronRight className="size-5" aria-hidden="true" />
           <span>הקודם</span>
         </Button>
-        
-        <div className="flex flex-col items-center">
-          <span className="text-xs text-muted-foreground">שלב</span>
-          <span className="text-sm font-bold text-foreground">
-            {currentStep} / {totalSteps}
-          </span>
+
+        <div className="flex items-center justify-center gap-1 font-bold text-sm text-foreground" dir="ltr">
+          <span className="tabular-nums">{currentStep}</span>
+          <span className="text-muted-foreground/40 font-normal">/</span>
+          <span className="tabular-nums">{totalSteps}</span>
         </div>
-        
+
         <div className="flex items-center gap-2 flex-1">
           <Button
             variant={isLast ? "default" : "default"}
