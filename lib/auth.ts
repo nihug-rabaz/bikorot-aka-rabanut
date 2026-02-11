@@ -9,6 +9,11 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
     }),
   ],
   // חשוב: כשמשתמשים ב-Adapter ורוצים להשתמש ב-role בתוך ה-JWT
@@ -31,11 +36,11 @@ export const authOptions: NextAuthOptions = {
       return !!authorizedInspector;
     },
     async jwt({ token, user }) {
-      if (user) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email! },
+      if (user?.email) {
+        const inspector = await prisma.inspector.findFirst({
+          where: { email: user.email },
         });
-        token.role = dbUser?.role || "USER";
+        token.role = inspector?.role ?? "USER";
       }
       return token;
     },

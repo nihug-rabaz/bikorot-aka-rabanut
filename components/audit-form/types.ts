@@ -28,11 +28,14 @@ export interface InspectorOption {
 }
 
 export interface GeneralDetails {
+  date: string
   unitName: string
   rabbiName: string
+  rabbiRank: string
   rabbiSeniority: number
   rabbiIdNumber: string
   ncoName: string
+  ncoRank: string
   ncoSeniority: number
   ncoIdNumber: string
 }

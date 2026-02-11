@@ -1,55 +1,12 @@
 "use client"
 
-import { useSession } from "next-auth/react" // הייבוא החדש
-import { CalendarDays, User, ShieldCheck, Loader2 } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { CalendarDays, ShieldCheck, Loader2 } from "lucide-react"
+import { formatHebrewDate } from "@/lib/hebrew-date"
 
-
-interface AuditHeaderProps {
-  inspectorName: string
-}
-
-
-// פונקציית עזר להמרת מספר לאותיות עבריות (גימטריה)
-function numberToHebrew(num: number): string {
-  if (num <= 0) return "";
-  const units = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"];
-  const tens = ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"];
-  const hundreds = ["", "ק", "ר", "ש", "ת"];
-
-  let result = "";
-
-  // טיפול באלפים (עבור השנה - התשפ"ו)
-  if (num >= 1000) {
-    // בדרך כלל משמיטים את ה-ה' של האלפים בתאריך (תשפ"ו במקום ה'תשפ"ו)
-    num %= 1000;
-  }
-
-  // מאות
-  const h = Math.floor(num / 100);
-  if (h > 4) {
-    result += "ת" + numberToHebrew((h - 4) * 100);
-  } else {
-    result += hundreds[h];
-  }
-  num %= 100;
-
-  // עשרות ויחידות (טיפול מיוחד ב-טו ו-טז)
-  if (num === 15) return result + "טו";
-  if (num === 16) return result + "טז";
-
-  result += tens[Math.floor(num / 10)];
-  result += units[num % 10];
-
-  // הוספת גרשיים
-  if (result.length > 1) {
-    return result.slice(0, -1) + '"' + result.slice(-1);
-  }
-  return result;
-}
-
-export function AuditHeader({ inspectorName }: AuditHeaderProps) {
+export function AuditHeader() {
   const { data: session, status } = useSession()
-  const today = new Date();
+  const today = new Date()
   // פונקציית עזר לקביעת האותיות הראשיות של השם
   const getInitials = (name: string | null | undefined) => {
     if (!name) return "??";
@@ -59,20 +16,9 @@ export function AuditHeader({ inspectorName }: AuditHeaderProps) {
       .join("")
       .slice(0, 2);
   };
-  // חילוץ נתוני התאריך העברי מהדפדפן
-  const parts = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  }).formatToParts(today);
-
-  const dayNum = parseInt(parts.find(p => p.type === 'day')?.value || "0");
-  const monthName = parts.find(p => p.type === 'month')?.value || "";
-  const yearNum = parseInt(parts.find(p => p.type === 'year')?.value || "0");
-
-  const hebrewDateStr = `${numberToHebrew(dayNum)} ב${monthName} ה${numberToHebrew(yearNum)}`;
-  const gregorianDate = today.toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" });
-  const dayOfWeek = today.toLocaleDateString("he-IL", { weekday: "long" });
+  const hebrewDateStr = formatHebrewDate(today)
+  const gregorianDate = today.toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" })
+  const dayOfWeek = today.toLocaleDateString("he-IL", { weekday: "long" })
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md px-4 py-4 shadow-sm">

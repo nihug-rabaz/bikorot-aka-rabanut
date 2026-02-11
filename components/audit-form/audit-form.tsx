@@ -1,14 +1,16 @@
 "use client"
 
 import { useState, useTransition, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { AuditHeader } from "./audit-header"
 import { AuditTabs } from "./audit-tabs"
 import { AuditNavigation } from "./audit-navigation"
 import { GeneralDetailsSection } from "./sections/general-details"
 import { CriterionField } from "./sections/criterion-field"
-import { saveAudit } from "@/app/actions"
+import { saveAudit, updateAudit } from "@/app/actions"
+import { toggleAuditLock } from "@/app/lib/actions/audit-actions"
 import { Button } from "@/components/ui/button"
-import { Save } from "lucide-react"
+import { Save, Pencil } from "lucide-react"
 import { toast } from "sonner"
 import type {
   CategoryWithCriteria,
@@ -22,21 +24,38 @@ const GENERAL_TAB_ID = "general"
 export interface AuditFormProps {
   categories: CategoryWithCriteria[]
   inspectors: InspectorOption[]
+  auditId?: string
+  isLocked?: boolean
+  initialGeneralDetails?: GeneralDetails
+  initialAnswers?: AnswersByCriterionId
+  initialSelectedInspectorIds?: string[]
 }
 
 function getInitialGeneralDetails(): GeneralDetails {
   return {
+    date: new Date().toISOString(),
     unitName: "",
     rabbiName: "",
+    rabbiRank: "",
     rabbiSeniority: 0,
     rabbiIdNumber: "",
     ncoName: "",
+    ncoRank: "",
     ncoSeniority: 0,
     ncoIdNumber: "",
   }
 }
 
-export function AuditForm({ categories, inspectors }: AuditFormProps) {
+export function AuditForm({
+  categories,
+  inspectors,
+  auditId,
+  isLocked = false,
+  initialGeneralDetails,
+  initialAnswers,
+  initialSelectedInspectorIds,
+}: AuditFormProps) {
+  const router = useRouter()
   const tabs = useMemo(
     () => [
       { id: GENERAL_TAB_ID, label: "פרטים כלליים" },
@@ -46,11 +65,15 @@ export function AuditForm({ categories, inspectors }: AuditFormProps) {
   )
 
   const [currentTabId, setCurrentTabId] = useState<string>(GENERAL_TAB_ID)
-  const [generalDetails, setGeneralDetails] = useState<GeneralDetails>(getInitialGeneralDetails())
-  const [answers, setAnswers] = useState<AnswersByCriterionId>({})
-  const [selectedInspectorIds, setSelectedInspectorIds] = useState<string[]>([])
+  const [generalDetails, setGeneralDetails] = useState<GeneralDetails>(
+    () => initialGeneralDetails ?? getInitialGeneralDetails()
+  )
+  const [answers, setAnswers] = useState<AnswersByCriterionId>(() => initialAnswers ?? {})
+  const [selectedInspectorIds, setSelectedInspectorIds] = useState<string[]>(
+    () => initialSelectedInspectorIds ?? []
+  )
   const [isPending, startTransition] = useTransition()
-  const inspectorName = "דוד כהן"
+  const readOnly = !!auditId && isLocked
 
   const currentIndex = tabs.findIndex((t) => t.id === currentTabId)
   const isFirst = currentIndex === 0
@@ -90,13 +113,24 @@ export function AuditForm({ categories, inspectors }: AuditFormProps) {
 
   const handleSave = () => {
     startTransition(async () => {
-      const result = await saveAudit({ generalDetails, answers, selectedInspectorIds })
+      const payload = { generalDetails, answers, selectedInspectorIds }
+      const result = auditId
+        ? await updateAudit(auditId, payload)
+        : await saveAudit(payload)
 
       if (result.success) {
-        toast.success("הביקורת נשמרה בהצלחה")
+        toast.success(auditId ? "הביקורת עודכנה" : "הביקורת נשמרה בהצלחה")
+        if (!auditId && "auditId" in result) router.push(`/audit/${result.auditId}`)
       } else {
-        toast.error(`שגיאה בשמירה: ${result.error}`)
+        toast.error(`שגיאה: ${result.error}`)
       }
+    })
+  }
+
+  const handleUnlockAndEdit = () => {
+    if (!auditId) return
+    startTransition(() => {
+      toggleAuditLock(auditId, true).then(() => router.refresh())
     })
   }
 
@@ -113,6 +147,7 @@ export function AuditForm({ categories, inspectors }: AuditFormProps) {
           inspectors={inspectors}
           selectedInspectorIds={selectedInspectorIds}
           onInspectorToggle={toggleInspector}
+          readOnly={readOnly}
         />
       )
     }
@@ -130,6 +165,7 @@ export function AuditForm({ categories, inspectors }: AuditFormProps) {
             comment={answers[criterion.id]?.comment}
             onValueChange={(value) => updateAnswer(criterion.id, value)}
             onCommentChange={(comment) => updateAnswerComment(criterion.id, comment)}
+            readOnly={readOnly}
           />
         ))}
       </div>
@@ -138,7 +174,7 @@ export function AuditForm({ categories, inspectors }: AuditFormProps) {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
-      <AuditHeader inspectorName={inspectorName} />
+      <AuditHeader />
 
       <AuditTabs
         tabs={tabs}
@@ -150,26 +186,40 @@ export function AuditForm({ categories, inspectors }: AuditFormProps) {
         {renderContent()}
       </main>
 
-      <AuditNavigation
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        isFirst={isFirst}
-        isLast={isLast}
-        currentStep={currentIndex + 1}
-        totalSteps={tabs.length}
-        rightAction={
+      {readOnly ? (
+        <footer className="sticky bottom-0 border-t border-border bg-card px-4 py-4 shadow-lg">
           <Button
-            onClick={handleSave}
+            onClick={handleUnlockAndEdit}
             disabled={isPending}
-            className="gap-2 text-base font-medium"
             size="lg"
-            variant="outline"
+            className="w-full gap-2 text-lg font-bold py-6"
           >
-            <Save className="size-5" aria-hidden="true" />
-            <span>{isPending ? "שומר..." : "שמור"}</span>
+            <Pencil className="size-6" aria-hidden="true" />
+            <span>{isPending ? "מעביר לעריכה..." : "ערוך"}</span>
           </Button>
-        }
-      />
+        </footer>
+      ) : (
+        <AuditNavigation
+          onPrevious={handlePrevious}
+          onNext={handleNext}
+          isFirst={isFirst}
+          isLast={isLast}
+          currentStep={currentIndex + 1}
+          totalSteps={tabs.length}
+          rightAction={
+            <Button
+              onClick={handleSave}
+              disabled={isPending}
+              className="gap-2 text-base font-medium"
+              size="lg"
+              variant="outline"
+            >
+              <Save className="size-5" aria-hidden="true" />
+              <span>{isPending ? "שומר..." : "שמור"}</span>
+            </Button>
+          }
+        />
+      )}
     </div>
   )
 }

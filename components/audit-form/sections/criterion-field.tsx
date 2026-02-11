@@ -73,6 +73,7 @@ interface CriterionFieldProps {
   comment: string | null | undefined
   onValueChange: (value: string) => void
   onCommentChange: (comment: string) => void
+  readOnly?: boolean
 }
 
 export function CriterionField({
@@ -81,6 +82,7 @@ export function CriterionField({
   comment,
   onValueChange,
   onCommentChange,
+  readOnly = false,
 }: CriterionFieldProps) {
   if (criterion.type === "RADIO") {
     const status = (value as AuditStatus) ?? null
@@ -90,34 +92,38 @@ export function CriterionField({
           <CardTitle className="text-base font-semibold text-foreground">{criterion.label}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div
-            className="grid grid-cols-3 gap-2"
-            role="radiogroup"
-            aria-label={`סטטוס ${criterion.label}`}
-          >
-            {radioOptions.map((option) => {
-              const Icon = option.icon
-              const isActive = status === option.value
-              return (
-                <button
-                  key={option.value ?? "none"}
-                  type="button"
-                  role="radio"
-                  aria-checked={isActive}
-                  onClick={() => onValueChange(option.value ?? "")}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 font-medium transition-all",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                    "active:scale-95",
-                    isActive ? option.activeClassName : option.className
-                  )}
-                >
-                  <Icon className="size-6" aria-hidden="true" />
-                  <span className="text-sm">{option.label}</span>
-                </button>
-              )
-            })}
-          </div>
+          {readOnly ? (
+            <p className="text-base text-muted-foreground">{status ?? "—"}</p>
+          ) : (
+            <div
+              className="grid grid-cols-3 gap-2"
+              role="radiogroup"
+              aria-label={`סטטוס ${criterion.label}`}
+            >
+              {radioOptions.map((option) => {
+                const Icon = option.icon
+                const isActive = status === option.value
+                return (
+                  <button
+                    key={option.value ?? "none"}
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => onValueChange(option.value ?? "")}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 font-medium transition-all",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      "active:scale-95",
+                      isActive ? option.activeClassName : option.className
+                    )}
+                  >
+                    <Icon className="size-6" aria-hidden="true" />
+                    <span className="text-sm">{option.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
           <div className="space-y-2">
             <label
               htmlFor={`comment-${criterion.id}`}
@@ -125,13 +131,17 @@ export function CriterionField({
             >
               הערות
             </label>
-            <Textarea
-              id={`comment-${criterion.id}`}
-              value={comment ?? ""}
-              onChange={(e) => onCommentChange(e.target.value)}
-              placeholder="הוסף הערה..."
-              className="min-h-20 resize-none text-base"
-            />
+            {readOnly ? (
+              <p className="min-h-10 text-base text-foreground whitespace-pre-wrap">{comment || "—"}</p>
+            ) : (
+              <Textarea
+                id={`comment-${criterion.id}`}
+                value={comment ?? ""}
+                onChange={(e) => onCommentChange(e.target.value)}
+                placeholder="הוסף הערה..."
+                className="min-h-20 resize-none text-base"
+              />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -146,34 +156,38 @@ export function CriterionField({
           <CardTitle className="text-base font-semibold text-foreground">{criterion.label}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div
-            className="grid grid-cols-3 gap-2"
-            role="radiogroup"
-            aria-label={`ציון ${criterion.label}`}
-          >
-            {scoreOptions.map((option) => {
-              const Icon = option.icon
-              const isActive = score === option.value
-              return (
-                <button
-                  key={option.value ?? "none"}
-                  type="button"
-                  role="radio"
-                  aria-checked={isActive}
-                  onClick={() => onValueChange(option.value ?? "")}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 font-medium transition-all",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                    "active:scale-95",
-                    isActive ? option.activeClassName : option.className
-                  )}
-                >
-                  <Icon className="size-6" aria-hidden="true" />
-                  <span className="text-sm">{option.label}</span>
-                </button>
-              )
-            })}
-          </div>
+          {readOnly ? (
+            <p className="text-base text-muted-foreground">{score ?? "—"}</p>
+          ) : (
+            <div
+              className="grid grid-cols-3 gap-2"
+              role="radiogroup"
+              aria-label={`ציון ${criterion.label}`}
+            >
+              {scoreOptions.map((option) => {
+                const Icon = option.icon
+                const isActive = score === option.value
+                return (
+                  <button
+                    key={option.value ?? "none"}
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => onValueChange(option.value ?? "")}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 font-medium transition-all",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      "active:scale-95",
+                      isActive ? option.activeClassName : option.className
+                    )}
+                  >
+                    <Icon className="size-6" aria-hidden="true" />
+                    <span className="text-sm">{option.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     )
@@ -185,12 +199,16 @@ export function CriterionField({
         <CardTitle className="text-base font-semibold text-foreground">{criterion.label}</CardTitle>
       </CardHeader>
       <CardContent>
-        <Textarea
-          value={value ?? ""}
-          onChange={(e) => onValueChange(e.target.value)}
-          placeholder="הזן טקסט כאן..."
-          className="min-h-64 resize-none text-base leading-relaxed"
-        />
+        {readOnly ? (
+          <p className="min-h-24 text-base text-foreground whitespace-pre-wrap">{value ?? "—"}</p>
+        ) : (
+          <Textarea
+            value={value ?? ""}
+            onChange={(e) => onValueChange(e.target.value)}
+            placeholder="הזן טקסט כאן..."
+            className="min-h-64 resize-none text-base leading-relaxed"
+          />
+        )}
       </CardContent>
     </Card>
   )

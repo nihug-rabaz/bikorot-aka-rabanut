@@ -42,12 +42,10 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  role          String    @default("USER") // USER, ADMIN, INSPECTOR
-  
+
   accounts      Account[]
   sessions      Session[]
-  
-  // חיבור למבקר - משתמש יכול להיות משויך לישות מבקר אחת
+
   inspector     Inspector? @relation(fields: [inspectorId], references: [id])
   inspectorId   String?    @unique
 }
@@ -67,18 +65,24 @@ model Audit {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
   status            String      @default("DRAFT")
+  isLocked          Boolean     @default(false)
   
   date              DateTime    @default(now())
   unitName          String
   rabbiName         String
+  rabbiRank         String
   rabbiSeniority    Int      
   rabbiIdNumber     String   
-  ncoName           String   
+  ncoName           String  
+  ncoRank           String  
   ncoSeniority      Int
   ncoIdNumber       String
   
   answers           Answer[]
-  inspectors        Inspector[]
+  inspectors        Inspector[] @relation("AuditInspectors")
+
+  creatorId         String?
+  creator           Inspector?  @relation("AuditCreator", fields: [creatorId], references: [id])
 
   summaryEvaluation String?     @db.Text
   recommendations   String?     @db.Text
@@ -88,9 +92,11 @@ model Audit {
 model Inspector {
   id     String  @id @default(cuid())
   name   String
-  email  String? @unique // הוספנו מייל כדי שנוכל לחבר למשתמש גוגל
-  audits Audit[]
-  user   User?   // חיבור חזרה למשתמש
+  email  String? @unique
+  role   String  @default("INSPECTOR")
+  audits        Audit[] @relation("AuditInspectors")
+  createdAudits Audit[] @relation("AuditCreator")
+  user          User?
 }
 
 model Category {
