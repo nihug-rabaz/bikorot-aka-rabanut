@@ -51,6 +51,7 @@ export type AuditSectionKey =
 export interface AnswerEntry {
   value?: string | null
   comment?: string | null
+  updatedAt?: string
 }
 
 export type AnswersByCriterionId = Record<string, AnswerEntry>

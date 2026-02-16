@@ -109,6 +109,7 @@ export function CriterionField({
                     type="button"
                     role="radio"
                     aria-checked={isActive}
+                    data-criterion-id={criterion.id}
                     onClick={() => onValueChange(option.value ?? "")}
                     className={cn(
                       "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 font-medium transition-all",
@@ -136,6 +137,7 @@ export function CriterionField({
             ) : (
               <Textarea
                 id={`comment-${criterion.id}`}
+                data-criterion-id={criterion.id}
                 value={comment ?? ""}
                 onChange={(e) => onCommentChange(e.target.value)}
                 placeholder="הוסף הערה..."
@@ -173,6 +175,7 @@ export function CriterionField({
                     type="button"
                     role="radio"
                     aria-checked={isActive}
+                    data-criterion-id={criterion.id}
                     onClick={() => onValueChange(option.value ?? "")}
                     className={cn(
                       "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 font-medium transition-all",
@@ -203,6 +206,7 @@ export function CriterionField({
           <p className="min-h-24 text-base text-foreground whitespace-pre-wrap">{value ?? "—"}</p>
         ) : (
           <Textarea
+            data-criterion-id={criterion.id}
             value={value ?? ""}
             onChange={(e) => onValueChange(e.target.value)}
             placeholder="הזן טקסט כאן..."

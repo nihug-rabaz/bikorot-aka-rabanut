@@ -7,6 +7,5 @@ export default withAuth({
 })
 
 export const config = {
-    // מחריגים דפים שלא צריכים הגנה
     matcher: ["/((?!api/auth|_next/static|_next/image|auth|favicon.ico).*)"],
 }

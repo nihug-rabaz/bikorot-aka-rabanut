@@ -4,7 +4,7 @@
   "version": "0.1.1",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "next build --webpack",
     "dev": "next dev --webpack",
     "lint": "eslint .",
     "start": "next start",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
+    "@ducanh2912/next-pwa": "^10.2.9",
     "@hookform/resolvers": "^3.10.0",
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
@@ -47,9 +48,9 @@
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "docx": "^9.2.0",
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
+    "dexie": "^4.3.0",
     "docx": "^9.5.1",
     "dotenv": "^17.2.3",
     "embla-carousel-react": "8.5.1",

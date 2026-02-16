@@ -26,3 +26,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /lib/generated/prisma
+
+# PWA (next-pwa generates these on build)
+/public/sw.js
+/public/sw.js.map
+/public/workbox-*.js
+/public/worker-*.js
+/public/fallback-*.js

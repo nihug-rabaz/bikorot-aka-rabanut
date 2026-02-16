@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic"
 
 import { prisma } from "@/lib/prisma"
 import { AuditForm } from "@/components/audit-form/audit-form"
+import { OfflineErrorBoundary } from "@/components/offline-error-boundary"
 
 export default async function HomePage() {
   const [categories, inspectors] = await Promise.all([
@@ -15,5 +16,9 @@ export default async function HomePage() {
     }),
   ])
 
-  return <AuditForm categories={categories} inspectors={inspectors} />
+  return (
+    <OfflineErrorBoundary>
+      <AuditForm categories={categories} inspectors={inspectors} />
+    </OfflineErrorBoundary>
+  )
 }

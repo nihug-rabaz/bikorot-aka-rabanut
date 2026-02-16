@@ -121,6 +121,7 @@ model Answer {
   comment     String?   @db.Text 
   auditId     String
   criterionId String
+  updatedAt   DateTime  @default(now()) @updatedAt
   audit       Audit     @relation(fields: [auditId], references: [id])
   criterion   Criterion @relation(fields: [criterionId], references: [id])
 

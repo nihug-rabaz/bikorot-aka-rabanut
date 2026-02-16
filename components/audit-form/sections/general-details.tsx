@@ -31,16 +31,16 @@ const fields: Array<{
   type: "text" | "number"
   icon: typeof Building2
 }> = [
-  { key: "unitName", label: "שם היחידה", placeholder: "הזן שם יחידה", type: "text", icon: Building2 },
-  { key: "rabbiName", label: "שם הרב", placeholder: "הזן שם הרב", type: "text", icon: User },
-  { key: "rabbiRank", label: " דרגת הרב", placeholder: "הזן דרגת הרב", type: "text", icon: User },
-  { key: "rabbiSeniority", label: "ותק הרב", placeholder: "0", type: "number", icon: Hash },
-  { key: "rabbiIdNumber", label: "מ.א. הרב", placeholder: "הזן ת.ז.", type: "text", icon: IdCard },
-  { key: "ncoName", label: "שם נגד/אזרח מכ\"ש", placeholder: "הזן שם המפקד", type: "text", icon: User },
-  { key: "ncoRank", label: "דרגת נגד/אזרח מכ\"ש", placeholder: "הזן דרגת המפקד", type: "text", icon: User },
-  { key: "ncoSeniority", label: "ותק נגד/אזרח מכ\"ש", placeholder: "0", type: "number", icon: Hash },
-  { key: "ncoIdNumber", label: "מ.א. נגד/אזרח מכ\"ש", placeholder: "הזן ת.ז.", type: "text", icon: IdCard },
-]
+    { key: "unitName", label: "שם היחידה", placeholder: "הזן שם יחידה", type: "text", icon: Building2 },
+    { key: "rabbiName", label: "שם הרב", placeholder: "הזן שם הרב", type: "text", icon: User },
+    { key: "rabbiRank", label: " דרגת הרב", placeholder: "הזן דרגת הרב", type: "text", icon: User },
+    { key: "rabbiSeniority", label: "ותק הרב", placeholder: "0", type: "number", icon: Hash },
+    { key: "rabbiIdNumber", label: "מ.א. הרב", placeholder: "הזן ת.ז.", type: "text", icon: IdCard },
+    { key: "ncoName", label: "שם נגד/אזרח מכ\"ש", placeholder: "הזן שם", type: "text", icon: User },
+    { key: "ncoRank", label: "דרגת נגד/אזרח מכ\"ש", placeholder: "הזן דרגה", type: "text", icon: User },
+    { key: "ncoSeniority", label: "ותק נגד/אזרח מכ\"ש", placeholder: "0", type: "number", icon: Hash },
+    { key: "ncoIdNumber", label: "מ.א. נגד/אזרח מכ\"ש", placeholder: "הזן מ.א.", type: "text", icon: IdCard },
+  ]
 
 export function GeneralDetailsSection({
   data,

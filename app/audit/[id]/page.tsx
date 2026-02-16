@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { AuditForm } from "@/components/audit-form/audit-form"
+import { OfflineErrorBoundary } from "@/components/offline-error-boundary"
 import type { GeneralDetails, AnswersByCriterionId } from "@/components/audit-form/types"
 
 export const dynamic = "force-dynamic"
@@ -40,20 +41,26 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
 
   const initialAnswers: AnswersByCriterionId = {}
   for (const a of audit.answers) {
-    initialAnswers[a.criterionId] = { value: a.value, comment: a.comment }
+    initialAnswers[a.criterionId] = {
+      value: a.value,
+      comment: a.comment,
+      updatedAt: a.updatedAt.toISOString(),
+    }
   }
 
   const initialSelectedInspectorIds = audit.inspectors.map((i) => i.id)
 
   return (
-    <AuditForm
-      auditId={id}
-      isLocked={audit.isLocked}
-      categories={categories}
-      inspectors={inspectors}
-      initialGeneralDetails={initialGeneralDetails}
-      initialAnswers={initialAnswers}
-      initialSelectedInspectorIds={initialSelectedInspectorIds}
-    />
+    <OfflineErrorBoundary>
+      <AuditForm
+        auditId={id}
+        isLocked={audit.isLocked}
+        categories={categories}
+        inspectors={inspectors}
+        initialGeneralDetails={initialGeneralDetails}
+        initialAnswers={initialAnswers}
+        initialSelectedInspectorIds={initialSelectedInspectorIds}
+      />
+    </OfflineErrorBoundary>
   )
 }
