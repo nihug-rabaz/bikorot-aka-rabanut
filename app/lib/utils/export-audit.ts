@@ -20,6 +20,7 @@ import {
   TextWrappingType,
   UnderlineType,
   VerticalAlign,
+  VerticalAlignElement,
   VerticalPositionRelativeFrom,
   WidthType,
   Header,
@@ -353,15 +354,14 @@ class ExportAuditService {
       ],
     })
 
-    const detailRows: TableRow[] = [
-      this.generalInfoRow("מבקר", context.inspectorName),
-    ]
+    // נבנה את מחרוזת המבקרים: נתחיל מהמבקר הראשי, ואם יש נוספים - נשרשר אותם עם פסיק
+    const inspectorsText = context.additionalInspectors
+      ? `${context.inspectorName}, ${context.additionalInspectors}`
+      : context.inspectorName;
 
-    if (context.additionalInspectors) {
-      detailRows.push(
-        this.generalInfoRow("נוכחים בביקורת", context.additionalInspectors),
-      )
-    }
+    const detailRows: TableRow[] = [
+      this.generalInfoRow("מבקרים", inspectorsText),
+    ];
 
     const rabbiLine = [
       context.rabbiName,
@@ -378,7 +378,7 @@ class ExportAuditService {
     ].join(", ")
 
     detailRows.push(
-      this.generalInfoRow("רב היחידה", rabbiLine),
+      this.generalInfoRow("מבוקרים", rabbiLine),
       this.generalInfoRow("נגד רבנות", ncoLine),
     )
 
@@ -388,7 +388,7 @@ class ExportAuditService {
       year: "numeric",
     })
     // שימוש בסימן כיווניות RTL כדי לשמור את המספרים צמודים לתאריך העברי
-    const dateLine = `${formatHebrewDate(context.date)} \u200F)${gregorianDate}(\u200F`
+    const dateLine = `${formatHebrewDate(context.date)} \u200F(${gregorianDate})\u200F`
 
     detailRows.push(
       this.generalInfoRow(
@@ -469,53 +469,189 @@ class ExportAuditService {
 
     let rowIndex = 1
     let itemIndex = 1
+
     for (const category of context.categories) {
-      const content: TextRun[] = []
+      let finalContent: TextRun[] = []
 
-      for (const item of category.items) {
-        if (content.length > 0) {
-          content.push(new TextRun({ text: "", break: 1, font: "David" }))
+      // הגדרת משתני עיצוב כברירת מחדל
+      let cellAlignment: any = AlignmentType.LEFT;
+      let cellVerticalAlignment: "top" | "center" | "bottom" | "both" = "center";
+      let cellMargins = undefined;
+
+      if (category.name === "הערכת מבקר") {
+        // --- לוגיקה מיוחדת להערכת מבקר ---
+        cellMargins = {
+          right: 150,
+          top: 120,
+          bottom: 120,
+        };
+
+        for (const item of category.items) {
+          if (finalContent.length > 0) {
+            finalContent.push(new TextRun({ text: "", break: 1, font: "David" }))
+          }
+
+          if (item.value) {
+            const isBad = item.value === "לא תקין"
+            finalContent.push(
+              new TextRun({
+                text: item.value,
+                color: isBad ? "FF0000" : "000000",
+                font: "David",
+                bold: false,
+              })
+            )
+          }
+
+          if (item.comment) {
+            finalContent.push(
+              new TextRun({ text: "", break: 1, font: "David" }),
+              new TextRun({ text: "\u200f      " + item.comment, font: "David" }),
+            )
+          }
         }
 
-        content.push(
-          new TextRun({
-            text: `\u200f  ${itemIndex}. \u200f`,
-            font: "David",
-          }),
-          new TextRun({
-            text: item.criterionLabel,
-            font: "David",
-          }),
-        )
+      } else if (category.name === "סיכום") {
+        // --- לוגיקה מיוחדת לסיכום ---
+        cellAlignment = AlignmentType.CENTER;
+        cellVerticalAlignment = "center";
 
-        if (item.value) {
-          const isBad = item.value === "לא תקין"
+        for (const item of category.items) {
+          if (finalContent.length > 0) {
+            finalContent.push(new TextRun({ text: "", break: 1, font: "David" }))
+          }
+
+          if (item.value) {
+            const isBad = item.value === "לא תקין"
+            finalContent.push(
+              new TextRun({
+                text: item.value,
+                color: isBad ? "FF0000" : "000000",
+                font: "David",
+                bold: true,
+                size: 28,
+              })
+            )
+          }
+
+          if (item.comment) {
+            finalContent.push(
+              new TextRun({ text: "", break: 1, font: "David" }),
+              new TextRun({
+                text: item.comment,
+                font: "David",
+                bold: true,
+                size: 28,
+              }),
+            )
+          }
+        }
+
+      } else {
+        // --- לוגיקה רגילה לשאר הקטגוריות ---
+        const content: TextRun[] = []
+
+        for (const item of category.items) {
+          if (content.length > 0) {
+            content.push(new TextRun({ text: "", break: 1, font: "David" }))
+          }
+
+          const labelText = `\u202B\u200F  ${itemIndex}. ${item.criterionLabel}\u202C`;
+
           content.push(
-            new TextRun({ text: " - ", font: "David" }),
             new TextRun({
-              text: item.value,
-              color: isBad ? "FF0000" : "000000",
+              text: labelText,
               font: "David",
-            }),
-          )
+            })
+          );
+
+          if (item.value) {
+            const isBad = item.value === "לא תקין";
+
+            content.push(
+              new TextRun({
+                text: " \u200F- \u200F",
+                font: "David",
+              })
+            );
+
+            content.push(
+              new TextRun({
+                text: item.value,
+                font: "David",
+                color: isBad ? "FF0000" : "000000",
+              })
+            );
+          }
+
+          if (item.comment) {
+            content.push(
+              new TextRun({ text: "", break: 1, font: "David" }),
+              new TextRun({ text: "\u200f      " + item.comment, font: "David" }),
+            )
+          }
+
+          itemIndex += 1
         }
 
-        if (item.comment) {
-          content.push(
-            new TextRun({ text: "", break: 1, font: "David" }),
-            new TextRun({ text: "\u200f      " + item.comment, font: "David" }),
-          )
-        }
-
-        itemIndex += 1
+        finalContent = content
       }
 
+      // ** הזרקת שורת "המלצות רע"ן" קבועה - רגע לפני שיוצרים את שורת הסיכום **
+      if (category.name === "סיכום") {
+        rows.push(
+          new TableRow({
+            children: [
+              // עמודה ראשונה (פירוט הממצא): ריקה לחלוטין כפי שביקשת
+              new TableCell({
+                borders: this.defaultBorders(),
+                width: { size: 45, type: WidthType.PERCENTAGE },
+                verticalAlign: "center",
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.LEFT,
+                    bidirectional: true,
+                    spacing: { before: 120, after: 120, line: 500 },
+                    children: [], // ריק לחלוטין
+                  }),
+                ],
+              }),
+              // עמודה שנייה (הנושא המבוקר): הטקסט הקבוע
+              this.dataCell("המלצות רע\"ן הדרכה ובקרה", AlignmentType.CENTER, 18, true, 22),
+              // עמודה שלישית (מס"ד): מקבלת את מספר השורה הרץ הנוכחי
+              this.dataCell(String(rowIndex), AlignmentType.CENTER, 10, true, 22),
+            ],
+          }),
+        );
+
+        // קידום ה-rowIndex עבור שורת הרע"ן שזה עתה הזרקנו
+        rowIndex += 1;
+      }
+
+      // יצירת השורה הנוכחית מהלולאה (הערכת מבקר / סיכום / קטגוריה רגילה)
       rows.push(
         new TableRow({
           children: [
-            this.dataCell(content, AlignmentType.LEFT, 45),
+            new TableCell({
+              borders: this.defaultBorders(),
+              width: { size: 45, type: WidthType.PERCENTAGE },
+              verticalAlign: cellVerticalAlignment,
+              margins: cellMargins,
+              children: [
+                new Paragraph({
+                  alignment: cellAlignment,
+                  bidirectional: true,
+                  spacing: {
+                    before: 120,
+                    after: 120,
+                    line: 500,
+                  },
+                  children: finalContent,
+                }),
+              ],
+            }),
             this.dataCell(category.name, AlignmentType.CENTER, 18, true, 22),
-            this.dataCell(String(rowIndex), AlignmentType.CENTER, 10, true, 22),
+            this.dataCell(String(rowIndex), AlignmentType.CENTER, 10, true, 22), // ימשיך את המספור באופן עוקב ותקין
           ],
         }),
       )

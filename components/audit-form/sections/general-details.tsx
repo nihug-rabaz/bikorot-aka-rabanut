@@ -32,10 +32,10 @@ const fields: Array<{
   icon: typeof Building2
 }> = [
     { key: "unitName", label: "שם היחידה", placeholder: "הזן שם יחידה", type: "text", icon: Building2 },
-    { key: "rabbiName", label: "שם הרב", placeholder: "הזן שם הרב", type: "text", icon: User },
-    { key: "rabbiRank", label: " דרגת הרב", placeholder: "הזן דרגת הרב", type: "text", icon: User },
-    { key: "rabbiSeniority", label: "ותק הרב", placeholder: "0", type: "number", icon: Hash },
-    { key: "rabbiIdNumber", label: "מ.א. הרב", placeholder: "הזן ת.ז.", type: "text", icon: IdCard },
+    { key: "rabbiName", label: "שם המבוקר", placeholder: "הזן שם מבוקר", type: "text", icon: User },
+    { key: "rabbiRank", label: "דרגת המבוקר", placeholder: "הזן דרגת מבוקר", type: "text", icon: User },
+    { key: "rabbiSeniority", label: "ותק המבוקר", placeholder: "0", type: "number", icon: Hash },
+    { key: "rabbiIdNumber", label: "מ.א. המבוקר", placeholder: "הזן מ.א.", type: "text", icon: IdCard },
     { key: "ncoName", label: "שם נגד/אזרח מכ\"ש", placeholder: "הזן שם", type: "text", icon: User },
     { key: "ncoRank", label: "דרגת נגד/אזרח מכ\"ש", placeholder: "הזן דרגה", type: "text", icon: User },
     { key: "ncoSeniority", label: "ותק נגד/אזרח מכ\"ש", placeholder: "0", type: "number", icon: Hash },
@@ -134,7 +134,7 @@ export function GeneralDetailsSection({
               />
               {field.key === "unitName" && (
                 <p className="pt-2 text-base font-extrabold text-foreground">
-                  רב מבוקר
+                  מבוקרים
                 </p>
               )}
               {field.key === "rabbiIdNumber" && (
