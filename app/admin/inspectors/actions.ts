@@ -4,14 +4,20 @@ import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 
 export async function addInspector(formData: FormData) {
-    const name = formData.get("name") as string
-    const email = formData.get("email") as string
+    const name = ((formData.get("name") as string) || "").trim()
+    const email = ((formData.get("email") as string) || "").trim()
+    const personalNumber = ((formData.get("personalNumber") as string) || "").trim()
     const role = (formData.get("role") as string) || "INSPECTOR"
 
-    if (!name || !email) return
+    if (!name || !email || !personalNumber) return
 
     await prisma.inspector.create({
-        data: { name, email, role: role === "ADMIN" ? "ADMIN" : "INSPECTOR" },
+        data: {
+            name,
+            email,
+            personalNumber,
+            role: role === "ADMIN" ? "ADMIN" : "INSPECTOR",
+        },
     })
 
     revalidatePath("/admin/inspectors")

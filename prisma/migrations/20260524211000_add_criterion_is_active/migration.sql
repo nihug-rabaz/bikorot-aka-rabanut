@@ -1,0 +1,2 @@
+ALTER TABLE "Criterion"
+ADD COLUMN "isActive" BOOLEAN NOT NULL DEFAULT true;

@@ -3,12 +3,11 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { addInspector } from "./actions"
-import { DeleteInspectorButton } from "./delete-inspector-button"
-import { InspectorRoleMenu } from "./inspector-role-menu"
+import { InspectorsList } from "./inspectors-list"
+import { getInspectorRoleLabel, INSPECTOR_ROLES } from "./inspector-roles"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { UserPlus, ShieldCheck } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 export default async function AdminInspectorsPage() {
     const session = await getServerSession(authOptions)
@@ -17,7 +16,7 @@ export default async function AdminInspectorsPage() {
     if (userRole !== "ADMIN") redirect("/")
 
     const inspectors = await prisma.inspector.findMany({
-        orderBy: { name: 'asc' }
+        orderBy: { name: "asc" },
     })
 
     return (
@@ -27,16 +26,19 @@ export default async function AdminInspectorsPage() {
                 <h1 className="text-3xl font-black">ניהול מבקרים</h1>
             </div>
 
-            {/* טופס הוספת מבקר */}
             <div className="bg-card p-6 rounded-xl border shadow-sm mb-10">
                 <h2 className="text-lg font-bold mb-4">הוספת מבקר חדש</h2>
                 <form action={addInspector} className="flex flex-col gap-3">
                     <div className="flex flex-col md:flex-row gap-3">
                         <Input name="name" placeholder="שם המבקר" className="flex-1" required />
                         <Input name="email" type="email" placeholder="אימייל גוגל של המבקר" className="flex-1" required />
+                        <Input name="personalNumber" placeholder="מספר אישי" className="flex-1" required />
                         <select name="role" className="flex h-10 w-full md:w-40 rounded-md border border-input bg-background px-3 py-2 text-sm">
-                            <option value="INSPECTOR">מבקר</option>
-                            <option value="ADMIN">אדמין</option>
+                            {INSPECTOR_ROLES.map((role) => (
+                                <option key={role} value={role}>
+                                    {getInspectorRoleLabel(role)}
+                                </option>
+                            ))}
                         </select>
                         <Button type="submit" className="gap-2 px-6">
                             <UserPlus className="size-4" />
@@ -46,41 +48,7 @@ export default async function AdminInspectorsPage() {
                 </form>
             </div>
 
-            {/* רשימת המבקרים */}
-            <div className="space-y-3">
-                <h2 className="text-lg font-bold mb-2">מבקרים מאושרים ({inspectors.length})</h2>
-                <div className="grid gap-3">
-                    {inspectors.map((inspector) => (
-                        <div
-                            key={inspector.id}
-                            className={cn(
-                                "flex items-center justify-between p-4 border rounded-lg shadow-sm",
-                                inspector.role === "ADMIN"
-                                    ? "bg-primary/10 border-primary/30"
-                                    : "bg-card border-border"
-                            )}
-                        >
-                            <div>
-                                <p className="font-bold text-lg">{inspector.name}</p>
-                                <p className="text-sm text-muted-foreground">{inspector.email}</p>
-                                <p className="text-sm font-medium mt-1">
-                                    {inspector.role === "ADMIN" ? "אדמין" : "מבקר"}
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <InspectorRoleMenu inspectorId={inspector.id} currentRole={inspector.role} />
-                                <DeleteInspectorButton inspectorId={inspector.id} />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {inspectors.length === 0 && (
-                    <p className="text-center py-12 text-muted-foreground bg-muted/20 rounded-lg border-2 border-dashed">
-                        אין עדיין מבקרים רשומים במערכת
-                    </p>
-                )}
-            </div>
+            <InspectorsList inspectors={inspectors} />
         </div>
     )
 }

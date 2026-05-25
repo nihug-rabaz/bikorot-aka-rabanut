@@ -13,6 +13,7 @@ export interface CriterionFromDb {
   id: string
   label: string
   type: string
+  order: number
 }
 
 export interface CategoryWithCriteria {

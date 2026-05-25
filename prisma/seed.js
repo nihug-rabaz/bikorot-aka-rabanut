@@ -25,10 +25,10 @@ async function main() {
   console.log('Seeding inspectors...');
   await prisma.inspector.createMany({
     data: [
-      { name: 'ישראל ישראלי' },
-      { name: 'משה כהן' },
-      { name: 'אבי לוי' },
-      { name: 'דנה לוין' }
+      { name: 'ישראל ישראלי', personalNumber: '0000001' },
+      { name: 'משה כהן', personalNumber: '0000002' },
+      { name: 'אבי לוי', personalNumber: '0000003' },
+      { name: 'דנה לוין', personalNumber: '0000004' }
     ]
   });
 
@@ -49,8 +49,10 @@ async function main() {
         name: cat.name,
         order: cat.order,
         criteria: {
-          create: cat.criteria.map((c) =>
-            typeof c === 'string' ? { label: c, type: 'RADIO' } : { label: c.label, type: c.type }
+          create: cat.criteria.map((c, index) =>
+            typeof c === 'string'
+              ? { label: c, type: 'RADIO', order: index + 1 }
+              : { label: c.label, type: c.type, order: index + 1 }
           )
         }
       }

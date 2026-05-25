@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { FilePlus, History, Menu, LogIn, LogOut, User, Users } from "lucide-react" // הוספנו אייקונים
+import { FilePlus, History, Menu, LogIn, LogOut, User, Users, SlidersHorizontal } from "lucide-react" // הוספנו אייקונים
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -91,18 +91,33 @@ function NavLinks({
 
       {/* כפתור ניהול מבקרים - מופיע רק לאדמין */}
       {isAdmin && (
-        <Link
-          href="/admin/inspectors"
-          onClick={onLinkClick}
-          className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors mt-2",
-            "bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-950/20 dark:text-orange-400",
-            pathname === "/admin/inspectors" ? "ring-2 ring-orange-500/50 shadow-sm" : ""
-          )}
-        >
-          <Users className="size-5 shrink-0" />
-          <span>ניהול מבקרים</span>
-        </Link>
+        <>
+          <Link
+            href="/admin/inspectors"
+            onClick={onLinkClick}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors mt-2",
+              "bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-950/20 dark:text-orange-400",
+              pathname === "/admin/inspectors" ? "ring-2 ring-orange-500/50 shadow-sm" : ""
+            )}
+          >
+            <Users className="size-5 shrink-0" />
+            <span>ניהול מבקרים</span>
+          </Link>
+
+          <Link
+            href="/admin/form-editor"
+            onClick={onLinkClick}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+              "bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-950/20 dark:text-orange-400",
+              pathname === "/admin/form-editor" ? "ring-2 ring-orange-500/50 shadow-sm" : ""
+            )}
+          >
+            <SlidersHorizontal className="size-5 shrink-0" />
+            <span>עריכת טופס</span>
+          </Link>
+        </>
       )}
     </nav>
   )

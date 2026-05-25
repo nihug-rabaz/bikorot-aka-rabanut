@@ -81,7 +81,12 @@ export async function saveAudit(data: SaveAuditParams) {
 
     const summaryCategory = await prisma.category.findFirst({
       where: { name: "סיכום" },
-      include: { criteria: true },
+      include: {
+        criteria: {
+          where: { isActive: true },
+          orderBy: { order: "asc" },
+        },
+      },
     })
 
     if (summaryCategory) {
@@ -161,7 +166,12 @@ export async function updateAudit(auditId: string, data: SaveAuditParams) {
 
     const summaryCategory = await prisma.category.findFirst({
       where: { name: "סיכום" },
-      include: { criteria: true },
+      include: {
+        criteria: {
+          where: { isActive: true },
+          orderBy: { order: "asc" },
+        },
+      },
     })
 
     if (summaryCategory) {

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreVertical } from "lucide-react"
 import { updateInspectorRole } from "./actions"
+import { getInspectorRoleLabel, INSPECTOR_ROLES } from "./inspector-roles"
 
 interface InspectorRoleMenuProps {
   inspectorId: string
@@ -37,12 +38,11 @@ export function InspectorRoleMenu({ inspectorId, currentRole }: InspectorRoleMen
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>הרשאה</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={currentRole} onValueChange={handleSelect}>
-          <DropdownMenuRadioItem value="INSPECTOR">
-            מבקר
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="ADMIN">
-            אדמין
-          </DropdownMenuRadioItem>
+          {INSPECTOR_ROLES.map((role) => (
+            <DropdownMenuRadioItem key={role} value={role}>
+              {getInspectorRoleLabel(role)}
+            </DropdownMenuRadioItem>
+          ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>

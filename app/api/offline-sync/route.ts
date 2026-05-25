@@ -146,7 +146,12 @@ export async function POST(req: Request) {
         if (changedAuditIds.size > 0) {
           const summaryCategory = await tx.category.findFirst({
             where: { name: "סיכום" },
-            include: { criteria: true },
+            include: {
+              criteria: {
+                where: { isActive: true },
+                orderBy: { order: "asc" },
+              },
+            },
           })
 
           if (summaryCategory) {

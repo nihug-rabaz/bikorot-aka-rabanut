@@ -50,6 +50,7 @@ interface ExportAuditContext {
     order: number
     items: {
       criterionLabel: string
+      criterionOrder: number
       value: string | null
       comment: string | null
     }[]
@@ -165,9 +166,19 @@ class ExportAuditService {
     const audit = await prisma.audit.findUnique({
       where: { id: auditId },
       include: {
-        inspectors: true,
+        inspectors: {
+          select: {
+            id: true,
+            name: true,
+            personalNumber: true,
+          },
+        },
         creator: true,
         answers: {
+          orderBy: [
+            { criterion: { category: { order: "asc" } } },
+            { criterion: { order: "asc" } },
+          ],
           include: {
             criterion: {
               include: {
@@ -183,17 +194,23 @@ class ExportAuditService {
       throw new Error("Audit not found");
     }
 
-    let inspectorName = audit.creator?.name ?? ""
+    let inspectorName = ""
     let additionalInspectors: string | null = null
+    const formatInspector = (inspector: { name: string; personalNumber: string }) =>
+      `${inspector.name} מספר אישי ${inspector.personalNumber}`
+    const creatorInspector = audit.creatorId
+      ? audit.inspectors.find((inspector) => inspector.id === audit.creatorId)
+      : null
 
-    if (audit.creator) {
+    if (creatorInspector) {
+      inspectorName = formatInspector(creatorInspector)
       const others = audit.inspectors
         .filter((i) => i.id !== audit.creatorId)
-        .map((i) => i.name)
+        .map(formatInspector)
       additionalInspectors = others.length ? others.join(", ") : null
     } else if (audit.inspectors.length > 0) {
-      inspectorName = audit.inspectors[0].name
-      const rest = audit.inspectors.slice(1).map((i) => i.name)
+      inspectorName = formatInspector(audit.inspectors[0])
+      const rest = audit.inspectors.slice(1).map(formatInspector)
       additionalInspectors = rest.length ? rest.join(", ") : null
     }
 
@@ -213,14 +230,18 @@ class ExportAuditService {
       const bucket = categoriesMap.get(key)!;
       bucket.items.push({
         criterionLabel: answer.criterion.label,
+        criterionOrder: answer.criterion.order,
         value: answer.value,
         comment: answer.comment,
       });
     }
 
-    const categories = Array.from(categoriesMap.values()).sort(
-      (a, b) => a.order - b.order,
-    );
+    const categories = Array.from(categoriesMap.values())
+      .map((category) => ({
+        ...category,
+        items: category.items.sort((a, b) => a.criterionOrder - b.criterionOrder),
+      }))
+      .sort((a, b) => a.order - b.order)
 
     return {
       id: audit.id,

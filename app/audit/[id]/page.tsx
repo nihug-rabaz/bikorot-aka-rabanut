@@ -16,7 +16,12 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
     }),
     prisma.category.findMany({
       orderBy: { order: "asc" },
-      include: { criteria: true },
+      include: {
+        criteria: {
+          where: { isActive: true },
+          orderBy: { order: "asc" },
+        },
+      },
     }),
     prisma.inspector.findMany({
       select: { id: true, name: true },

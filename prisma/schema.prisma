@@ -90,10 +90,11 @@ model Audit {
 }
 
 model Inspector {
-  id     String  @id @default(cuid())
-  name   String
-  email  String? @unique
-  role   String  @default("INSPECTOR")
+  id             String  @id @default(cuid())
+  name           String
+  email          String? @unique
+  personalNumber String  @default("0000000")
+  role           String  @default("INSPECTOR")
   audits        Audit[] @relation("AuditInspectors")
   createdAudits Audit[] @relation("AuditCreator")
   user          User?
@@ -110,6 +111,8 @@ model Criterion {
   id         String    @id @default(cuid())
   label      String   
   type       String    @default("RADIO") 
+  order      Int       @default(0)
+  isActive   Boolean   @default(true)
   categoryId String
   category   Category  @relation(fields: [categoryId], references: [id])
   answers    Answer[]

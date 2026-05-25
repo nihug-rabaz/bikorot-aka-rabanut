@@ -8,7 +8,12 @@ export default async function HomePage() {
   const [categories, inspectors] = await Promise.all([
     prisma.category.findMany({
       orderBy: { order: "asc" },
-      include: { criteria: true },
+      include: {
+        criteria: {
+          where: { isActive: true },
+          orderBy: { order: "asc" },
+        },
+      },
     }),
     prisma.inspector.findMany({
       select: { id: true, name: true },
