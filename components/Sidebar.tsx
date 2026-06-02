@@ -1,14 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { FilePlus, History, Menu, LogIn, LogOut, User, Users, SlidersHorizontal } from "lucide-react" // הוספנו אייקונים
+import { FileDown, FilePlus, History, Menu, LogIn, LogOut, User, Users, SlidersHorizontal } from "lucide-react" // הוספנו אייקונים
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { signIn, signOut, useSession } from "next-auth/react" // הוספנו את ה-Auth
+import { useNavigationGuard } from "@/app/lib/navigation/use-navigation-guard"
+import { navLog } from "@/app/lib/navigation/log"
 
 const SIDEBAR_WIDTH = "12rem"
 
@@ -20,6 +21,7 @@ const navItems = [
 // קומפוננטה חדשה לכפתורי ההתחברות כדי לא לשכפל קוד
 function AuthButtons() {
   const { data: session } = useSession()
+  const { isSaving, requestAction } = useNavigationGuard()
 
   if (session) {
     return (
@@ -31,10 +33,16 @@ function AuthButtons() {
         <Button
           variant="ghost"
           className="justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50"
-          onClick={() => signOut()}
+          disabled={isSaving}
+          onClick={() => {
+            navLog("Sidebar", "sign out clicked")
+            requestAction(async () => {
+              await signOut()
+            }, { trigger: "signout", label: "התנתקות" })
+          }}
         >
           <LogOut className="size-5" />
-          התנתק
+          {isSaving ? "שומר..." : "התנתק"}
         </Button>
       </div>
     )
@@ -45,10 +53,16 @@ function AuthButtons() {
       <Button
         variant="default"
         className="w-full justify-start gap-3"
-        onClick={() => signIn("google")}
+        disabled={isSaving}
+        onClick={() => {
+          navLog("Sidebar", "sign in clicked")
+          requestAction(async () => {
+            await signIn("google")
+          }, { trigger: "signout", label: "התחברות" })
+        }}
       >
         <LogIn className="size-5" />
-        התחבר עם גוגל
+        {isSaving ? "שומר..." : "התחבר עם גוגל"}
       </Button>
     </div>
   )
@@ -65,6 +79,14 @@ function NavLinks({
 }) {
   const { data: session } = useSession() // [!code ++] מושכים את הסשן
   const isAdmin = (session?.user as any)?.role === "ADMIN" // [!code ++] בדיקת אדמין
+  const { isSaving, requestAction, requestNavigation } = useNavigationGuard()
+
+  const navigate = (href: string) => {
+    const trigger = href === "/" ? "new-audit" : "sidebar"
+    navLog("Sidebar", "navigation item clicked", { href, trigger })
+    requestNavigation(href, { trigger })
+    onLinkClick?.()
+  }
 
   return (
     <nav className={cn("flex flex-col gap-1", className)} aria-label="ניווט ראשי">
@@ -72,51 +94,77 @@ function NavLinks({
         const Icon = item.icon
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
         return (
-          <Link
+          <button
             key={item.href}
-            href={item.href}
-            onClick={onLinkClick}
+            type="button"
+            disabled={isSaving}
+            onClick={() => navigate(item.href)}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+              "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors text-right",
               "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "disabled:pointer-events-none disabled:opacity-50",
               isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground"
             )}
             aria-current={isActive ? "page" : undefined}
           >
             <Icon className="size-5 shrink-0" aria-hidden />
-            {item.label}
-          </Link>
+            {isSaving ? "שומר..." : item.label}
+          </button>
         )
       })}
 
       {/* כפתור ניהול מבקרים - מופיע רק לאדמין */}
       {isAdmin && (
         <>
-          <Link
-            href="/admin/inspectors"
-            onClick={onLinkClick}
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() => navigate("/admin/inspectors")}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors mt-2",
+              "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors mt-2 text-right",
               "bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-950/20 dark:text-orange-400",
+              "disabled:pointer-events-none disabled:opacity-50",
               pathname === "/admin/inspectors" ? "ring-2 ring-orange-500/50 shadow-sm" : ""
             )}
           >
             <Users className="size-5 shrink-0" />
-            <span>ניהול מבקרים</span>
-          </Link>
+            <span>{isSaving ? "שומר..." : "ניהול מבקרים"}</span>
+          </button>
 
-          <Link
-            href="/admin/form-editor"
-            onClick={onLinkClick}
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() => navigate("/admin/form-editor")}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+              "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors text-right",
               "bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-950/20 dark:text-orange-400",
+              "disabled:pointer-events-none disabled:opacity-50",
               pathname === "/admin/form-editor" ? "ring-2 ring-orange-500/50 shadow-sm" : ""
             )}
           >
             <SlidersHorizontal className="size-5 shrink-0" />
-            <span>עריכת טופס</span>
-          </Link>
+            <span>{isSaving ? "שומר..." : "עריכת טופס"}</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() => {
+              navLog("Sidebar", "export logs clicked")
+              requestAction(() => {
+                window.location.href = "/api/logs/export?days=30&format=csv"
+              }, { trigger: "sidebar", label: "הורדת לוגים" })
+              onLinkClick?.()
+            }}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors text-right",
+              "bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-950/20 dark:text-orange-400",
+              "disabled:pointer-events-none disabled:opacity-50"
+            )}
+          >
+            <FileDown className="size-5 shrink-0" />
+            <span>{isSaving ? "שומר..." : "הורדת לוגים"}</span>
+          </button>
         </>
       )}
     </nav>

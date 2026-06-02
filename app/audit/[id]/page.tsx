@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
+import { ARCHIVED_CATEGORY_NAME } from "@/lib/form-editor/constants"
 import { AuditForm } from "@/components/audit-form/audit-form"
 import { OfflineErrorBoundary } from "@/components/offline-error-boundary"
 import type { GeneralDetails, AnswersByCriterionId } from "@/components/audit-form/types"
@@ -9,12 +10,20 @@ export const dynamic = "force-dynamic"
 export default async function AuditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
+  if (process.env.NODE_ENV === "development") {
+    console.log("[AuditPage] mounted", { id })
+  }
+
   const [audit, categories, inspectors] = await Promise.all([
     prisma.audit.findUnique({
       where: { id },
       include: { answers: true, inspectors: true },
     }),
     prisma.category.findMany({
+      where: {
+        name: { not: ARCHIVED_CATEGORY_NAME },
+        criteria: { some: { isActive: true } },
+      },
       orderBy: { order: "asc" },
       include: {
         criteria: {

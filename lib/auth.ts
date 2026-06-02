@@ -2,6 +2,8 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import { prisma } from "@/lib/prisma"
+import { LOG_EVENTS } from "@/lib/logging/events"
+import { writeAppLog } from "@/lib/logging/logger"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
@@ -26,14 +28,60 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user }) {
-      if (!user.email) return false;
+      if (!user.email) {
+        await writeAppLog({
+          level: "WARN",
+          eventType: LOG_EVENTS.authLoginFailure,
+          status: "FAIL",
+          source: "auth.signIn",
+          action: "Google sign in blocked",
+          message: "Login failed because provider did not return user email.",
+          actor: {
+            email: user.email ?? undefined,
+            name: user.name ?? undefined,
+          },
+        })
+        return false;
+      }
 
-      // בדיקה אם המשתמש קיים בטבלת ה-Inspector (מורשה כניסה)
-      const authorizedInspector = await prisma.inspector.findFirst({
-        where: { email: user.email },
-      });
+      try {
+        const normalizedEmail = user.email.toLowerCase()
+        const authorizedInspector = await prisma.inspector.findFirst({
+          where: { email: normalizedEmail },
+        });
 
-      return !!authorizedInspector;
+        if (!authorizedInspector) {
+          await writeAppLog({
+            level: "WARN",
+            eventType: LOG_EVENTS.authLoginFailure,
+            status: "FAIL",
+            source: "auth.signIn",
+            action: "Google sign in denied",
+            message: "Login denied because inspector account was not found.",
+            actor: {
+              email: normalizedEmail,
+              name: user.name ?? undefined,
+            },
+          })
+          return false
+        }
+
+        return true
+      } catch (error) {
+        await writeAppLog({
+          level: "ERROR",
+          eventType: LOG_EVENTS.serverException,
+          status: "FAIL",
+          source: "auth.signIn",
+          action: "Sign in callback exception",
+          message: error instanceof Error ? error.message : "Unknown sign in error",
+          actor: {
+            email: user.email ?? undefined,
+            name: user.name ?? undefined,
+          },
+        })
+        return false
+      }
     },
     async jwt({ token, user }) {
       if (user?.email) {

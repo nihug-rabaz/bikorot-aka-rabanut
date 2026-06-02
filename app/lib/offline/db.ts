@@ -8,6 +8,7 @@ export interface OfflineAuditRecord {
   selectedInspectorIdsJson: string
   updatedAt: string
   isDirty: number
+  pendingServerSave?: number
   lastSyncedAt?: string | null
 }
 
@@ -44,6 +45,10 @@ class OfflineDb extends Dexie {
       .upgrade((tx) => {
         tx.table("audits").clear()
         tx.table("answers").clear()
+    })
+    this.version(4).stores({
+      audits: "id, isDirty, pendingServerSave, updatedAt",
+      answers: "id, auditId, criterionId, isDirty, updatedAt",
     })
   }
 }

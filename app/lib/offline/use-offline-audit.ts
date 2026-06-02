@@ -13,6 +13,20 @@ export interface OfflineAuditState {
   generalDetails: GeneralDetails
   answers: AnswersByCriterionId
   selectedInspectorIds: string[]
+  isDirty: boolean
+  pendingServerSave: boolean
+}
+
+async function clearLocalAudit(key: string) {
+  let deletedAnswers = 0
+  let deletedAudits = 0
+  await offlineDb.transaction("rw", offlineDb.audits, offlineDb.answers, async () => {
+    const existingAudit = await offlineDb.audits.get(key)
+    await offlineDb.audits.delete(key)
+    deletedAudits = existingAudit ? 1 : 0
+    deletedAnswers = await offlineDb.answers.where("auditId").equals(key).delete()
+  })
+  log("[OfflineAudit] clearLocal", { key, deletedAudits, deletedAnswers })
 }
 
 /** המרת פרטים כלליים ל-JSON לשמירה ב-Dexie */
@@ -67,6 +81,8 @@ export function useOfflineAuditStorage(auditKey: string) {
           generalDetails: fallbackGeneral,
           answers: fallbackAnswers,
           selectedInspectorIds: fallbackInspectorIds,
+          isDirty: false,
+          pendingServerSave: false,
         }
       }
 
@@ -96,6 +112,8 @@ export function useOfflineAuditStorage(auditKey: string) {
         generalDetails,
         answers,
         selectedInspectorIds,
+        isDirty: audit.pendingServerSave !== 1 && (audit.isDirty === 1 || answerRows.some((row) => row.isDirty === 1)),
+        pendingServerSave: audit.pendingServerSave === 1,
       }
     },
     [effectiveKey],
@@ -105,12 +123,14 @@ export function useOfflineAuditStorage(auditKey: string) {
   const saveGeneralDetails = useCallback(
     async (general: GeneralDetails, selectedInspectorIds: string[]) => {
       const now = new Date().toISOString()
+      const existing = await offlineDb.audits.get(effectiveKey)
       await offlineDb.audits.put({
         id: effectiveKey,
         generalDetailsJson: serializeGeneralDetails(general),
         selectedInspectorIdsJson: serializeInspectorIds(selectedInspectorIds),
         updatedAt: now,
         isDirty: 1,
+        pendingServerSave: existing?.pendingServerSave ?? 0,
         lastSyncedAt: null,
       })
     },
@@ -121,12 +141,14 @@ export function useOfflineAuditStorage(auditKey: string) {
   const saveInspectors = useCallback(
     async (selectedInspectorIds: string[], currentGeneral: GeneralDetails) => {
       const now = new Date().toISOString()
+      const existing = await offlineDb.audits.get(effectiveKey)
       await offlineDb.audits.put({
         id: effectiveKey,
         generalDetailsJson: serializeGeneralDetails(currentGeneral),
         selectedInspectorIdsJson: serializeInspectorIds(selectedInspectorIds),
         updatedAt: now,
         isDirty: 1,
+        pendingServerSave: existing?.pendingServerSave ?? 0,
         lastSyncedAt: null,
       })
     },
@@ -176,6 +198,7 @@ export function useOfflineAuditStorage(auditKey: string) {
           selectedInspectorIdsJson: serializeInspectorIds(data.selectedInspectorIds),
           updatedAt: data.updatedAt,
           isDirty: 0,
+          pendingServerSave: 0,
           lastSyncedAt: now,
         })
       }
@@ -202,12 +225,64 @@ export function useOfflineAuditStorage(auditKey: string) {
     })
   }, [])
 
+  const clearCurrent = useCallback(async () => {
+    await clearLocalAudit(effectiveKey)
+  }, [effectiveKey])
+
+  const clearDraft = useCallback(async () => {
+    await clearLocalAudit("draft")
+  }, [])
+
+  const queueServerSave = useCallback(
+    async (
+      general: GeneralDetails,
+      selectedInspectorIds: string[],
+      answers: AnswersByCriterionId,
+    ) => {
+      if (effectiveKey === "draft") {
+        throw new Error("Cannot queue a server save for a draft audit.")
+      }
+
+      const now = new Date().toISOString()
+      await offlineDb.transaction("rw", offlineDb.audits, offlineDb.answers, async () => {
+        await offlineDb.audits.put({
+          id: effectiveKey,
+          generalDetailsJson: serializeGeneralDetails(general),
+          selectedInspectorIdsJson: serializeInspectorIds(selectedInspectorIds),
+          updatedAt: now,
+          isDirty: 1,
+          pendingServerSave: 1,
+          lastSyncedAt: null,
+        })
+
+        for (const [criterionId, entry] of Object.entries(answers)) {
+          if (entry.value === undefined && entry.comment === undefined) continue
+          await offlineDb.answers.put({
+            id: `${effectiveKey}:${criterionId}`,
+            auditId: effectiveKey,
+            criterionId,
+            value: entry.value ?? null,
+            comment: entry.comment ?? null,
+            updatedAt: entry.updatedAt ?? now,
+            isDirty: 1,
+            lastSyncedAt: null,
+          })
+        }
+      })
+      log("[OfflineAudit] queued server save", { key: effectiveKey })
+    },
+    [effectiveKey],
+  )
+
   return {
     load,
     saveGeneralDetails,
     saveInspectors,
     saveAnswer,
     updateFromSync,
+    clearCurrent,
+    clearDraft,
+    queueServerSave,
   }
 }
 

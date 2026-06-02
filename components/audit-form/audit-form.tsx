@@ -11,6 +11,7 @@ import { saveAudit, updateAudit } from "@/app/actions"
 import { toggleAuditLock } from "@/app/lib/actions/audit-actions"
 import { useOfflineAuditStorage } from "@/app/lib/offline/use-offline-audit"
 import { syncOfflineData, type ServerAuditSnapshot } from "@/app/lib/offline/sync-engine"
+import { useNavigationGuard } from "@/app/lib/navigation/use-navigation-guard"
 import { Button } from "@/components/ui/button"
 import { Save, Pencil } from "lucide-react"
 import { toast } from "sonner"
@@ -25,6 +26,29 @@ const log = (...args: unknown[]) => {
   if (process.env.NODE_ENV === "development") console.log(...args)
 }
 
+const NEW_AUDIT_OFFLINE_MESSAGE =
+  "אין אינטרנט. לא ניתן ליצור ביקורת חדשה במצב אופליין. יש לחזור לאזור עם קליטה וללחוץ שוב שמור."
+
+function isBrowserOffline() {
+  return typeof navigator !== "undefined" && !navigator.onLine
+}
+
+function isServerUnreachableMessage(message: string) {
+  const lower = message.toLowerCase()
+  return (
+    lower.includes("can't reach database server") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("econnrefused") ||
+    lower.includes("etimedout") ||
+    lower.includes("p1001")
+  )
+}
+
+function isUnreachableSaveError(message: string) {
+  return isBrowserOffline() || isServerUnreachableMessage(message)
+}
+
 const GENERAL_TAB_ID = "general"
 
 export interface AuditFormProps {
@@ -35,19 +59,22 @@ export interface AuditFormProps {
   initialGeneralDetails?: GeneralDetails
   initialAnswers?: AnswersByCriterionId
   initialSelectedInspectorIds?: string[]
+  forceFresh?: boolean
 }
 
-const INITIAL_GENERAL: GeneralDetails = {
-  date: new Date().toISOString(),
-  unitName: "",
-  rabbiName: "",
-  rabbiRank: "",
-  rabbiSeniority: 0,
-  rabbiIdNumber: "",
-  ncoName: "",
-  ncoRank: "",
-  ncoSeniority: 0,
-  ncoIdNumber: "",
+const createInitialGeneral = (): GeneralDetails => {
+  return {
+    date: new Date().toISOString(),
+    unitName: "",
+    rabbiName: "",
+    rabbiRank: "",
+    rabbiSeniority: 0,
+    rabbiIdNumber: "",
+    ncoName: "",
+    ncoRank: "",
+    ncoSeniority: 0,
+    ncoIdNumber: "",
+  }
 }
 
 export function AuditForm({
@@ -58,8 +85,10 @@ export function AuditForm({
   initialGeneralDetails,
   initialAnswers,
   initialSelectedInspectorIds,
+  forceFresh = false,
 }: AuditFormProps) {
   const router = useRouter()
+  const { registerForm } = useNavigationGuard()
   const offline = useOfflineAuditStorage(auditId ?? "")
   const loadRef = useRef(offline.load)
   loadRef.current = offline.load
@@ -74,7 +103,7 @@ export function AuditForm({
 
   const [currentTabId, setCurrentTabId] = useState<string>(GENERAL_TAB_ID)
   const [generalDetails, setGeneralDetails] = useState<GeneralDetails>(
-    () => initialGeneralDetails ?? INITIAL_GENERAL
+    () => initialGeneralDetails ?? createInitialGeneral()
   )
   const [answers, setAnswers] = useState<AnswersByCriterionId>(
     () => initialAnswers ?? {}
@@ -83,19 +112,27 @@ export function AuditForm({
     () => initialSelectedInspectorIds ?? []
   )
   const [isPending, startTransition] = useTransition()
-  const [syncStatus, setSyncStatus] = useState<"checking" | "synced" | "offline" | "syncing" | "error">("checking")
+  const [isDirty, setIsDirty] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<"checking" | "synced" | "offline" | "syncing" | "pending" | "error">("checking")
   const readOnly = !!auditId && isLocked
   const answerSaveTimers = useRef<Record<string, number>>({})
   const generalSaveTimer = useRef<number | null>(null)
   const generalRef = useRef<GeneralDetails>(generalDetails)
   const answersRef = useRef<AnswersByCriterionId>(answers)
   const inspectorIdsRef = useRef<string[]>(selectedInspectorIds)
-  const hasUserEdited = useRef(false)
+  const isDirtyRef = useRef(false)
   const auditIdRef = useRef(auditId ?? "")
   auditIdRef.current = auditId ?? ""
   const editedGeneralFields = useRef<Set<string>>(new Set())
   const editedCriterionIds = useRef<Set<string>>(new Set())
   const editedInspectors = useRef(false)
+
+  const markDirty = useCallback(() => {
+    if (isDirtyRef.current) return
+    isDirtyRef.current = true
+    setIsDirty(true)
+    log("[AuditForm] dirty state changed", { isDirty: true, auditId: auditIdRef.current || "draft" })
+  }, [])
 
   /**
    * מרענן את state הטופס מנתוני השרת: רק תשובות שהשרת חדש מהמקומי (serverAt > localAt),
@@ -149,23 +186,54 @@ export function AuditForm({
     return onSyncResponseRef.current?.(data)
   }, [])
 
+  const resetForFresh = useCallback(async () => {
+    const emptyGeneral = createInitialGeneral()
+    await offline.clearDraft()
+    setCurrentTabId(GENERAL_TAB_ID)
+    setGeneralDetails(emptyGeneral)
+    setAnswers({})
+    setSelectedInspectorIds([])
+    generalRef.current = emptyGeneral
+    answersRef.current = {}
+    inspectorIdsRef.current = []
+    editedGeneralFields.current.clear()
+    editedCriterionIds.current.clear()
+    editedInspectors.current = false
+    isDirtyRef.current = false
+    setIsDirty(false)
+    log("[AuditForm] resetForFresh executed")
+  }, [offline.clearDraft])
+
   useEffect(() => {
-    const fallbackGeneral = initialGeneralDetails ?? { ...INITIAL_GENERAL, date: new Date().toISOString() }
+    const fallbackGeneral = initialGeneralDetails ?? createInitialGeneral()
     const fallbackAnswers = initialAnswers ?? {}
     const fallbackInspectors = initialSelectedInspectorIds ?? []
+    if (forceFresh && !auditId) {
+      resetForFresh()
+      return
+    }
     loadRef
       .current(fallbackGeneral, fallbackAnswers, fallbackInspectors)
       .then((state) => {
-        if (hasUserEdited.current) return
+        if (isDirtyRef.current) return
         setGeneralDetails(state.generalDetails)
         setAnswers(state.answers)
         setSelectedInspectorIds(state.selectedInspectorIds)
         generalRef.current = state.generalDetails
         answersRef.current = state.answers
         inspectorIdsRef.current = state.selectedInspectorIds
+        if (state.isDirty) {
+          isDirtyRef.current = true
+          setIsDirty(true)
+          log("[AuditForm] local dirty state restored", { auditId: auditIdRef.current || "draft" })
+        }
+        if (state.pendingServerSave) {
+          setSyncStatus("pending")
+          log("[AuditForm] pending server save restored", { auditId: auditIdRef.current || "draft" })
+        }
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when auditId changes; initial* read at run time
-  }, [auditId])
+  }, [auditId, forceFresh, resetForFresh])
 
   useEffect(() => {
     let cancelled = false
@@ -180,11 +248,17 @@ export function AuditForm({
       if (!cancelled) setSyncStatus("checking")
       const result = await syncOfflineData(
         onServerUpdate,
-        auditId ? [auditId] : []
+        auditId ? [auditId] : [],
+        { pushDirty: true },
       )
       if (cancelled) return
       if (result.status === "offline") setSyncStatus("offline")
-      else if (result.status === "synced" || result.status === "idle") setSyncStatus("synced")
+      else if (result.status === "synced" || result.status === "idle") {
+        setSyncStatus("synced")
+        if (result.status === "synced" && result.pushedPendingSaves) {
+          toast.success("נתונים שנשמרו מקומית שודרו לשרת")
+        }
+      }
       else setSyncStatus("error")
     }
 
@@ -252,7 +326,7 @@ export function AuditForm({
   }
 
   const updateGeneralDetails = (field: keyof GeneralDetails, value: string | number) => {
-    hasUserEdited.current = true
+    markDirty()
     editedGeneralFields.current.add(field)
     const current = generalRef.current
     const next = { ...current, [field]: value }
@@ -262,7 +336,7 @@ export function AuditForm({
   }
 
   const toggleInspector = (id: string) => {
-    hasUserEdited.current = true
+    markDirty()
     editedInspectors.current = true
     const current = inspectorIdsRef.current
     const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
@@ -272,7 +346,7 @@ export function AuditForm({
   }
 
   const updateAnswer = (criterionId: string, value: string | null) => {
-    hasUserEdited.current = true
+    markDirty()
     editedCriterionIds.current.add(criterionId)
     const now = new Date().toISOString()
     const prev = answersRef.current
@@ -285,7 +359,7 @@ export function AuditForm({
   }
 
   const updateAnswerComment = (criterionId: string, comment: string) => {
-    hasUserEdited.current = true
+    markDirty()
     editedCriterionIds.current.add(criterionId)
     const now = new Date().toISOString()
     const prev = answersRef.current
@@ -308,19 +382,134 @@ export function AuditForm({
     }
   }, [])
 
-  const handleSave = () => {
-    startTransition(async () => {
-      const payload = { generalDetails, answers, selectedInspectorIds }
-      const result = auditId
+  const performSave = useCallback(async (redirectOnCreate: boolean) => {
+    const payload = {
+      generalDetails: generalRef.current,
+      answers: answersRef.current,
+      selectedInspectorIds: inspectorIdsRef.current,
+    }
+    log("[AuditForm] save start", { auditId: auditIdRef.current || "draft" })
+    if (isBrowserOffline()) {
+      if (auditId) {
+        await offline.queueServerSave(
+          payload.generalDetails,
+          payload.selectedInspectorIds,
+          payload.answers,
+        )
+        isDirtyRef.current = false
+        setIsDirty(false)
+        editedGeneralFields.current.clear()
+        editedCriterionIds.current.clear()
+        editedInspectors.current = false
+        setSyncStatus("pending")
+        toast.info("הנתונים נשמרו מקומית וישלחו כשיהיה אינטרנט")
+        log("[AuditForm] save queued offline", { auditId })
+        return { success: true }
+      }
+
+      toast.error(NEW_AUDIT_OFFLINE_MESSAGE)
+      log("[AuditForm] save offline draft failed", { error: NEW_AUDIT_OFFLINE_MESSAGE })
+      return { success: false, error: NEW_AUDIT_OFFLINE_MESSAGE }
+    }
+
+    let result: Awaited<ReturnType<typeof saveAudit>>
+    try {
+      result = auditId
         ? await updateAudit(auditId, payload)
         : await saveAudit(payload)
-
-      if (result.success) {
-        toast.success(auditId ? "הביקורת עודכנה" : "הביקורת נשמרה בהצלחה")
-        if (!auditId && "auditId" in result) router.push(`/audit/${result.auditId}`)
-      } else {
-        toast.error(`שגיאה: ${result.error}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown save error"
+      if (!auditId && isUnreachableSaveError(message)) {
+        toast.error(NEW_AUDIT_OFFLINE_MESSAGE)
+        log("[AuditForm] save unreachable for new audit", { error: message })
+        return { success: false, error: NEW_AUDIT_OFFLINE_MESSAGE }
       }
+      if (auditId && isUnreachableSaveError(message)) {
+        await offline.queueServerSave(
+          payload.generalDetails,
+          payload.selectedInspectorIds,
+          payload.answers,
+        )
+        isDirtyRef.current = false
+        setIsDirty(false)
+        editedGeneralFields.current.clear()
+        editedCriterionIds.current.clear()
+        editedInspectors.current = false
+        setSyncStatus("pending")
+        toast.info("הנתונים נשמרו מקומית וישלחו כשיהיה אינטרנט")
+        log("[AuditForm] save queued after unreachable exception", { auditId, error: message })
+        return { success: true }
+      }
+      toast.error(`שגיאה: ${message}`)
+      log("[AuditForm] save exception", { error: message })
+      return { success: false, error: message }
+    }
+
+    if (result.success) {
+      isDirtyRef.current = false
+      setIsDirty(false)
+      editedGeneralFields.current.clear()
+      editedCriterionIds.current.clear()
+      editedInspectors.current = false
+      toast.success(auditId ? "הביקורת עודכנה" : "הביקורת נשמרה בהצלחה")
+      log("[AuditForm] save success", { auditId: result.auditId })
+      await offline.clearCurrent()
+      await offline.clearDraft()
+      if (redirectOnCreate && !auditId && "auditId" in result) {
+        router.push(`/audit/${result.auditId}`)
+      }
+      return { success: true }
+    }
+
+    const failureMessage = result.error ?? "Unknown save error"
+    if (!auditId && isUnreachableSaveError(failureMessage)) {
+      toast.error(NEW_AUDIT_OFFLINE_MESSAGE)
+      log("[AuditForm] save unreachable for new audit", { error: failureMessage })
+      return { success: false, error: NEW_AUDIT_OFFLINE_MESSAGE }
+    }
+    if (auditId && isUnreachableSaveError(failureMessage)) {
+      await offline.queueServerSave(
+        payload.generalDetails,
+        payload.selectedInspectorIds,
+        payload.answers,
+      )
+      isDirtyRef.current = false
+      setIsDirty(false)
+      editedGeneralFields.current.clear()
+      editedCriterionIds.current.clear()
+      editedInspectors.current = false
+      setSyncStatus("pending")
+      toast.info("הנתונים נשמרו מקומית וישלחו כשיהיה אינטרנט")
+      log("[AuditForm] save queued after unreachable failure", { auditId, error: failureMessage })
+      return { success: true }
+    }
+    toast.error(`שגיאה: ${failureMessage}`)
+    log("[AuditForm] save failure", { error: failureMessage })
+    return { success: false, error: failureMessage }
+  }, [auditId, offline.clearCurrent, offline.clearDraft, offline.queueServerSave, router])
+
+  const discardLocal = useCallback(async () => {
+    await offline.clearCurrent()
+    if (!auditId) {
+      await offline.clearDraft()
+    }
+    isDirtyRef.current = false
+    setIsDirty(false)
+    log("[AuditForm] discardLocal cleared", { auditId: auditIdRef.current || "draft" })
+  }, [auditId, offline.clearCurrent, offline.clearDraft])
+
+  useEffect(() => {
+    return registerForm({
+      isDirty: () => isDirtyRef.current,
+      save: () => performSave(false),
+      discardLocal,
+      resetForFresh,
+    })
+  }, [discardLocal, isDirty, performSave, registerForm, resetForFresh])
+
+  const handleSave = () => {
+    startTransition(() => {
+      void performSave(true)
     })
   }
 
@@ -385,6 +574,7 @@ export function AuditForm({
           {syncStatus === "synced" && "Sync status: Synced"}
           {syncStatus === "offline" && "Sync status: Offline - Saved Locally"}
           {syncStatus === "syncing" && "Sync status: Syncing..."}
+          {syncStatus === "pending" && "Sync status: Waiting for internet to upload"}
           {syncStatus === "error" && "Sync status: Sync error"}
         </div>
         {renderContent()}

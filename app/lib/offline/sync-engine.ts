@@ -39,7 +39,7 @@ export interface ServerAuditSnapshot {
 export type SyncStatusResult =
   | { status: "offline" }
   | { status: "idle" }
-  | { status: "synced" }
+  | { status: "synced"; pushedPendingSaves?: boolean }
   | { status: "error" }
 
 /**
@@ -48,14 +48,21 @@ export type SyncStatusResult =
  */
 export async function syncOfflineData(
   onAuditFromServer?: (data: ServerAuditSnapshot) => void | Promise<void>,
-  requestedAuditIds?: string[]
+  requestedAuditIds?: string[],
+  options: { pushDirty?: boolean } = {},
 ): Promise<SyncStatusResult> {
   if (typeof window === "undefined") return { status: "idle" }
   if (!navigator.onLine) return { status: "offline" }
+  const pushDirty = options.pushDirty ?? true
 
-  const dirtyAudits = await offlineDb.audits.where("isDirty").equals(1).toArray()
-  const dirtyAnswers = await offlineDb.answers.where("isDirty").equals(1).toArray()
-  const hasDirty = dirtyAudits.length > 0 || dirtyAnswers.length > 0
+  const pendingAudits = pushDirty
+    ? await offlineDb.audits.where("pendingServerSave").equals(1).toArray()
+    : []
+  const pendingAuditIds = new Set(pendingAudits.map((audit) => audit.id))
+  const dirtyAnswers = pendingAuditIds.size
+    ? (await offlineDb.answers.where("isDirty").equals(1).toArray()).filter((answer) => pendingAuditIds.has(answer.auditId))
+    : []
+  const hasDirty = pendingAudits.length > 0
   const hasPull = requestedAuditIds?.length ? requestedAuditIds.filter((id) => id && id !== "draft").length > 0 : false
 
   if (!hasDirty && !hasPull) {
@@ -63,7 +70,7 @@ export async function syncOfflineData(
     return { status: "idle" }
   }
 
-  const auditsPayload = dirtyAudits
+  const auditsPayload = pendingAudits
     .filter((a) => a.id && a.id !== "draft")
     .map((a) => ({
       id: a.id,
@@ -117,7 +124,7 @@ export async function syncOfflineData(
       for (const sentAudit of auditsPayload) {
         const currentInDb = await offlineDb.audits.get(sentAudit.id);
         if (currentInDb && currentInDb.updatedAt === sentAudit.lastUpdated) {
-          await offlineDb.audits.update(sentAudit.id, { isDirty: 0, lastSyncedAt: now });
+          await offlineDb.audits.update(sentAudit.id, { isDirty: 0, pendingServerSave: 0, lastSyncedAt: now });
         }
       }
 
@@ -130,7 +137,7 @@ export async function syncOfflineData(
     });
 
     log("[SyncEngine] Sync completed successfully")
-    return { status: "synced" }
+    return { status: "synced", pushedPendingSaves: auditsPayload.length > 0 }
   } catch (err) {
     logError("[SyncEngine] Sync failed:", err)
     return { status: "error" }
