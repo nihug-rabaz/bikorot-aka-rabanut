@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache"
 import type { GeneralDetails, AnswersByCriterionId } from "@/components/audit-form/types"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { LOG_EVENTS } from "@/lib/logging/events"
+import { actorFromSession, writeAppLog } from "@/lib/logging/logger"
 
 interface SaveAuditParams {
   generalDetails: GeneralDetails
@@ -19,9 +21,9 @@ const SUMMARY_LABELS = {
 } as const
 
 export async function saveAudit(data: SaveAuditParams) {
+  const session = await getServerSession(authOptions)
+  const actor = actorFromSession(session)
   try {
-    const session = await getServerSession(authOptions)
-
     let allInspectorIds = data.selectedInspectorIds
     let creatorConnect: { connect: { id: string } } | undefined
 
@@ -107,16 +109,36 @@ export async function saveAudit(data: SaveAuditParams) {
 
     revalidatePath("/")
     revalidatePath("/audits")
+    await writeAppLog({
+      eventType: LOG_EVENTS.auditCreateSuccess,
+      status: "SUCCESS",
+      source: "audit.actions",
+      action: "Create audit",
+      message: "Audit saved successfully.",
+      actor,
+      entityType: "audit",
+      entityId: audit.id,
+    })
     return { success: true, auditId: audit.id }
   } catch (error) {
     console.error("Error saving audit:", error)
+    await writeAppLog({
+      level: "ERROR",
+      eventType: LOG_EVENTS.auditCreateFailure,
+      status: "FAIL",
+      source: "audit.actions",
+      action: "Create audit",
+      message: error instanceof Error ? error.message : "Unknown create audit error",
+      actor,
+    })
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
 
 export async function updateAudit(auditId: string, data: SaveAuditParams) {
+  const session = await getServerSession(authOptions)
+  const actor = actorFromSession(session)
   try {
-    const session = await getServerSession(authOptions)
     let allInspectorIds = data.selectedInspectorIds
 
     if (session?.user?.email) {
@@ -193,9 +215,30 @@ export async function updateAudit(auditId: string, data: SaveAuditParams) {
     revalidatePath("/")
     revalidatePath("/audits")
     revalidatePath(`/audit/${auditId}`)
+    await writeAppLog({
+      eventType: LOG_EVENTS.auditUpdateSuccess,
+      status: "SUCCESS",
+      source: "audit.actions",
+      action: "Update audit",
+      message: "Audit updated successfully.",
+      actor,
+      entityType: "audit",
+      entityId: auditId,
+    })
     return { success: true, auditId }
   } catch (error) {
     console.error("Error updating audit:", error)
+    await writeAppLog({
+      level: "ERROR",
+      eventType: LOG_EVENTS.auditUpdateFailure,
+      status: "FAIL",
+      source: "audit.actions",
+      action: "Update audit",
+      message: error instanceof Error ? error.message : "Unknown update audit error",
+      actor,
+      entityType: "audit",
+      entityId: auditId,
+    })
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
   }
 }

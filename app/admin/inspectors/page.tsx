@@ -2,18 +2,29 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { addInspector } from "./actions"
+import { LOG_EVENTS } from "@/lib/logging/events"
+import { actorFromSession, writeAppLog } from "@/lib/logging/logger"
 import { InspectorsList } from "./inspectors-list"
-import { getInspectorRoleLabel, INSPECTOR_ROLES } from "./inspector-roles"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { UserPlus, ShieldCheck } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
+import { AddInspectorForm } from "./add-inspector-form"
 
 export default async function AdminInspectorsPage() {
     const session = await getServerSession(authOptions)
+    const actor = actorFromSession(session)
     const userRole = (session?.user as { role?: string })?.role
 
-    if (userRole !== "ADMIN") redirect("/")
+    if (userRole !== "ADMIN") {
+        await writeAppLog({
+            level: "WARN",
+            eventType: LOG_EVENTS.authAccessDenied,
+            status: "BLOCKED",
+            source: "admin.inspectors.page",
+            action: "Access admin inspectors page",
+            message: "Access denied for non-admin user.",
+            actor,
+        })
+        redirect("/")
+    }
 
     const inspectors = await prisma.inspector.findMany({
         orderBy: { name: "asc" },
@@ -28,24 +39,7 @@ export default async function AdminInspectorsPage() {
 
             <div className="bg-card p-6 rounded-xl border shadow-sm mb-10">
                 <h2 className="text-lg font-bold mb-4">הוספת מבקר חדש</h2>
-                <form action={addInspector} className="flex flex-col gap-3">
-                    <div className="flex flex-col md:flex-row gap-3">
-                        <Input name="name" placeholder="שם המבקר" className="flex-1" required />
-                        <Input name="email" type="email" placeholder="אימייל גוגל של המבקר" className="flex-1" required />
-                        <Input name="personalNumber" placeholder="מספר אישי" className="flex-1" required />
-                        <select name="role" className="flex h-10 w-full md:w-40 rounded-md border border-input bg-background px-3 py-2 text-sm">
-                            {INSPECTOR_ROLES.map((role) => (
-                                <option key={role} value={role}>
-                                    {getInspectorRoleLabel(role)}
-                                </option>
-                            ))}
-                        </select>
-                        <Button type="submit" className="gap-2 px-6">
-                            <UserPlus className="size-4" />
-                            הוסף
-                        </Button>
-                    </div>
-                </form>
+                <AddInspectorForm />
             </div>
 
             <InspectorsList inspectors={inspectors} />

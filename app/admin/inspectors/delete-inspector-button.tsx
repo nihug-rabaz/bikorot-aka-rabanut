@@ -45,7 +45,7 @@ export function DeleteInspectorButton({ inspectorId }: DeleteInspectorButtonProp
         <AlertDialogHeader>
           <AlertDialogTitle>מחיקת מבקר</AlertDialogTitle>
           <AlertDialogDescription>
-            האם אתה בטוח שברצונך למחוק את המשתמש מהרשימה?
+            מחיקה זו אינה ניתנת לביטול. האם אתה בטוח שברצונך למחוק את המבקר?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

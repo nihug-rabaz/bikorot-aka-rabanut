@@ -42,8 +42,7 @@ interface ExportAuditContext {
   ncoIdNumber: string
   ncoSeniority: number
   finalScore: string | null
-  inspectorName: string
-  additionalInspectors: string | null
+  inspectorsLines: string[]
   categories: {
     id: string
     name: string
@@ -194,24 +193,21 @@ class ExportAuditService {
       throw new Error("Audit not found");
     }
 
-    let inspectorName = ""
-    let additionalInspectors: string | null = null
+    const inspectorsLines: string[] = []
     const formatInspector = (inspector: { name: string; personalNumber: string }) =>
-      `${inspector.name} מספר אישי ${inspector.personalNumber}`
+      `${inspector.name} (מספר אישי: ${inspector.personalNumber})`
     const creatorInspector = audit.creatorId
       ? audit.inspectors.find((inspector) => inspector.id === audit.creatorId)
       : null
 
     if (creatorInspector) {
-      inspectorName = formatInspector(creatorInspector)
+      inspectorsLines.push(formatInspector(creatorInspector))
       const others = audit.inspectors
         .filter((i) => i.id !== audit.creatorId)
         .map(formatInspector)
-      additionalInspectors = others.length ? others.join(", ") : null
+      inspectorsLines.push(...others)
     } else if (audit.inspectors.length > 0) {
-      inspectorName = formatInspector(audit.inspectors[0])
-      const rest = audit.inspectors.slice(1).map(formatInspector)
-      additionalInspectors = rest.length ? rest.join(", ") : null
+      inspectorsLines.push(...audit.inspectors.map(formatInspector))
     }
 
     const categoriesMap = new Map<string, ExportAuditContext["categories"][number]>();
@@ -256,8 +252,7 @@ class ExportAuditService {
       ncoIdNumber: audit.ncoIdNumber,
       ncoSeniority: audit.ncoSeniority,
       finalScore: audit.finalScore,
-      inspectorName,
-      additionalInspectors,
+      inspectorsLines,
       categories,
     };
   }
@@ -375,13 +370,8 @@ class ExportAuditService {
       ],
     })
 
-    // נבנה את מחרוזת המבקרים: נתחיל מהמבקר הראשי, ואם יש נוספים - נשרשר אותם עם פסיק
-    const inspectorsText = context.additionalInspectors
-      ? `${context.inspectorName}, ${context.additionalInspectors}`
-      : context.inspectorName;
-
     const detailRows: TableRow[] = [
-      this.generalInfoRow("מבקרים", inspectorsText),
+      this.generalInfoRow("מבקרים", context.inspectorsLines),
     ];
 
     const rabbiLine = [
@@ -422,14 +412,25 @@ class ExportAuditService {
       width: { size: 50, type: WidthType.PERCENTAGE },
       borders: this.noTableBorders(),
       alignment: AlignmentType.CENTER,
-      visuallyRightToLeft: true,
       rows: detailRows,
     })
 
     return [scoreParagraph, detailsTable]
   }
 
-  private generalInfoRow(label: string, value: string) {
+  private generalInfoRow(label: string, value: string | string[]) {
+    const toRtlLine = (line: string) => `\u202B${line}\u202C`
+    const valueRuns = Array.isArray(value)
+      ? value.flatMap((line, index) =>
+          index === 0
+            ? [new TextRun({ text: toRtlLine(line), font: "David", size: 24, bold: true })]
+            : [
+                new TextRun({ text: "", break: 1, font: "David" }),
+                new TextRun({ text: toRtlLine(line), font: "David", size: 24, bold: true }),
+              ],
+        )
+      : [new TextRun({ text: toRtlLine(value), font: "David", size: 24, bold: true })]
+
     return new TableRow({
       children: [
         new TableCell({
@@ -451,12 +452,7 @@ class ExportAuditService {
                   size: 24,
                   bold: true,
                 }),
-                new TextRun({
-                  text: value,
-                  font: "David",
-                  size: 24,
-                  bold: true,
-                }),
+                ...valueRuns,
               ],
             }),
           ],
@@ -532,6 +528,28 @@ class ExportAuditService {
           }
         }
 
+      } else if (category.name === "שיחת חתך חיילים") {
+        for (const item of category.items) {
+          if (finalContent.length > 0) {
+            finalContent.push(new TextRun({ text: "", break: 1, font: "David" }))
+          }
+
+          if (item.value) {
+            finalContent.push(
+              new TextRun({
+                text: `\u202B${item.value}\u202C`,
+                font: "David",
+              }),
+            )
+          }
+
+          if (item.comment) {
+            finalContent.push(
+              new TextRun({ text: "", break: 1, font: "David" }),
+              new TextRun({ text: `\u200f      \u202B${item.comment}\u202C`, font: "David" }),
+            )
+          }
+        }
       } else if (category.name === "סיכום") {
         // --- לוגיקה מיוחדת לסיכום ---
         cellAlignment = AlignmentType.CENTER;

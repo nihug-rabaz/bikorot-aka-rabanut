@@ -1,8 +1,11 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { type FormEvent, useMemo, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ARCHIVED_CATEGORY_LABEL, ARCHIVED_CATEGORY_NAME } from "@/lib/form-editor/constants"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,19 +61,26 @@ const CRITERION_TYPES = [
 
 type CategoryAction = "add" | "rename" | "reorder" | "delete"
 type CriterionAction = "add" | "rename" | "reorder" | "move" | "remove"
+type FormEditorAction = (formData: FormData) => Promise<{ ok: boolean; message?: string; error?: string }>
 
 export function FormEditorClient({ categories }: FormEditorClientProps) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const visibleCategories = useMemo(
+    () => categories.filter((category) => category.name !== ARCHIVED_CATEGORY_NAME),
+    [categories],
+  )
   const [categoryAction, setCategoryAction] = useState<CategoryAction>("rename")
   const [criterionAction, setCriterionAction] = useState<CriterionAction>("rename")
-  const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id ?? "")
+  const [selectedCategoryId, setSelectedCategoryId] = useState(visibleCategories[0]?.id ?? "")
 
   const firstActiveCriterionId = useMemo(() => {
-    for (const category of categories) {
+    for (const category of visibleCategories) {
       const active = category.criteria.find((criterion) => criterion.isActive)
       if (active) return active.id
     }
     return ""
-  }, [categories])
+  }, [visibleCategories])
 
   const firstDeletedCriterionId = useMemo(() => {
     for (const category of categories) {
@@ -83,9 +93,9 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
   const [selectedActiveCriterionId, setSelectedActiveCriterionId] = useState(firstActiveCriterionId)
   const [selectedDeletedCriterionId, setSelectedDeletedCriterionId] = useState(firstDeletedCriterionId)
 
-  const selectedCategory = categories.find((category) => category.id === selectedCategoryId) ?? null
+  const selectedCategory = visibleCategories.find((category) => category.id === selectedCategoryId) ?? null
   const selectedActiveCriterion =
-    categories.flatMap((category) => category.criteria).find((criterion) => criterion.id === selectedActiveCriterionId) ??
+    visibleCategories.flatMap((category) => category.criteria).find((criterion) => criterion.id === selectedActiveCriterionId) ??
     null
   const selectedDeletedCriterion =
     categories.flatMap((category) => category.criteria).find((criterion) => criterion.id === selectedDeletedCriterionId) ??
@@ -98,8 +108,29 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
     ? `permanent-delete-${selectedDeletedCriterionId}`
     : "permanent-delete-empty"
 
-  const hasActiveCriteria = categories.some((category) => category.criteria.some((criterion) => criterion.isActive))
+  const hasActiveCriteria = visibleCategories.some((category) => category.criteria.some((criterion) => criterion.isActive))
   const hasDeletedCriteria = categories.some((category) => category.criteria.some((criterion) => !criterion.isActive))
+
+  const runAction = (
+    action: FormEditorAction,
+    fallbackSuccessMessage: string,
+  ) => async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+
+    startTransition(async () => {
+      const result = await action(formData)
+      if (!result.ok) {
+        toast.error(result.error ?? "הפעולה נכשלה.", { duration: 2000 })
+        return
+      }
+      toast.success(result.message ?? fallbackSuccessMessage, { duration: 2000 })
+      router.refresh()
+    })
+  }
+
+  const getCategoryLabel = (category: EditorCategory) =>
+    category.name === ARCHIVED_CATEGORY_NAME ? ARCHIVED_CATEGORY_LABEL : category.name
 
   return (
     <div className="space-y-6">
@@ -110,7 +141,7 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
           <select
             value={categoryAction}
             onChange={(event) => setCategoryAction(event.target.value as CategoryAction)}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="add">הוספת קטגוריה</option>
             <option value="rename">שינוי מלל קטגוריה</option>
@@ -121,10 +152,10 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
           <select
             value={selectedCategoryId}
             onChange={(event) => setSelectedCategoryId(event.target.value)}
-            disabled={categoryAction === "add" || categories.length === 0}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+            disabled={categoryAction === "add" || visibleCategories.length === 0}
+            className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
           >
-            {categories.map((category) => (
+            {visibleCategories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
               </option>
@@ -133,14 +164,14 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
         </div>
 
         {categoryAction === "add" && (
-          <form action={addCategory} className="flex flex-col md:flex-row gap-3">
+          <form onSubmit={runAction(addCategory, "הקטגוריה נוספה בהצלחה.")} className="flex flex-col md:flex-row gap-3">
             <Input name="name" placeholder="שם קטגוריה חדשה" className="flex-1" required />
-            <Button type="submit">הוסף קטגוריה</Button>
+            <Button type="submit" disabled={isPending}>הוסף קטגוריה</Button>
           </form>
         )}
 
         {categoryAction === "rename" && (
-          <form action={renameCategory} className="flex flex-col md:flex-row gap-3">
+          <form onSubmit={runAction(renameCategory, "שם הקטגוריה עודכן בהצלחה.")} className="flex flex-col md:flex-row gap-3">
             <input type="hidden" name="categoryId" value={selectedCategoryId} />
             <Input
               name="name"
@@ -150,14 +181,14 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
               className="flex-1"
               required
             />
-            <Button type="submit" disabled={!selectedCategoryId}>
+            <Button type="submit" disabled={!selectedCategoryId || isPending}>
               עדכן קטגוריה
             </Button>
           </form>
         )}
 
         {categoryAction === "delete" && (
-          <form action={deleteCategory} className="flex flex-col gap-3">
+          <form onSubmit={runAction(deleteCategory, "הקטגוריה נמחקה בהצלחה.")} className="flex flex-col gap-3">
             <input type="hidden" name="categoryId" value={selectedCategoryId} />
             <p className="text-sm text-muted-foreground">
               מחיקת קטגוריה תתאפשר רק כאשר אין בה קריטריונים כלל.
@@ -165,7 +196,7 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
             <Button
               type="submit"
               variant="destructive"
-              disabled={!selectedCategoryId || (selectedCategory?.criteria.length ?? 0) > 0}
+              disabled={!selectedCategoryId || isPending}
               className="w-fit"
             >
               מחק קטגוריה
@@ -174,7 +205,7 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
         )}
 
         {categoryAction === "reorder" && (
-          <form action={moveCategoryWithinList} className="flex flex-wrap items-center gap-3">
+          <form onSubmit={runAction(moveCategoryWithinList, "מיקום הקטגוריה עודכן בהצלחה.")} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="categoryId" value={selectedCategoryId} />
             <Input
               name="position"
@@ -184,7 +215,7 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
               key={selectedCategoryId}
               className="w-28"
             />
-            <Button type="submit" variant="outline" disabled={!selectedCategoryId}>
+            <Button type="submit" variant="outline" disabled={!selectedCategoryId || isPending}>
               עדכן מיקום קטגוריה
             </Button>
           </form>
@@ -198,7 +229,7 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
           <select
             value={criterionAction}
             onChange={(event) => setCriterionAction(event.target.value as CriterionAction)}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="add">הוספת קריטריון</option>
             <option value="rename">שינוי מלל קריטריון</option>
@@ -211,7 +242,7 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
             value={selectedActiveCriterionId}
             onChange={(event) => setSelectedActiveCriterionId(event.target.value)}
             disabled={criterionAction === "add" || !hasActiveCriteria}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+            className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
           >
             {categories.map((category) => {
               const activeCriteria = category.criteria.filter((criterion) => criterion.isActive)
@@ -230,13 +261,13 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
         </div>
 
         {criterionAction === "add" && (
-          <form action={addCriterion} className="grid gap-3 lg:grid-cols-[1fr_220px_220px_auto]">
+          <form onSubmit={runAction(addCriterion, "הקריטריון נוסף בהצלחה.")} className="grid gap-3 lg:grid-cols-[1fr_220px_220px_auto]">
             <select
               name="categoryId"
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              defaultValue={selectedCategoryId || categories[0]?.id}
+              className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              defaultValue={selectedCategoryId || visibleCategories[0]?.id}
             >
-              {categories.map((category) => (
+              {visibleCategories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
@@ -245,7 +276,7 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
             <Input name="label" placeholder="מלל הקריטריון" required />
             <select
               name="type"
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm"
               defaultValue="RADIO"
             >
               {CRITERION_TYPES.map((type) => (
@@ -254,12 +285,12 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
                 </option>
               ))}
             </select>
-            <Button type="submit">הוסף</Button>
+            <Button type="submit" disabled={isPending}>הוסף</Button>
           </form>
         )}
 
         {criterionAction === "rename" && (
-          <form action={renameCriterion} className="flex flex-col md:flex-row gap-3">
+          <form onSubmit={runAction(renameCriterion, "מלל הקריטריון עודכן בהצלחה.")} className="flex flex-col md:flex-row gap-3">
             <input type="hidden" name="criterionId" value={selectedActiveCriterionId} />
             <Input
               name="label"
@@ -269,14 +300,14 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
               className="flex-1"
               required
             />
-            <Button type="submit" disabled={!selectedActiveCriterionId}>
+            <Button type="submit" disabled={!selectedActiveCriterionId || isPending}>
               עדכן מלל
             </Button>
           </form>
         )}
 
         {criterionAction === "reorder" && (
-          <form action={moveCriterionWithinCategory} className="flex flex-wrap items-center gap-3">
+          <form onSubmit={runAction(moveCriterionWithinCategory, "מיקום הקריטריון עודכן בהצלחה.")} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="criterionId" value={selectedActiveCriterionId} />
             <Input
               name="position"
@@ -286,21 +317,21 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
               key={selectedActiveCriterionId}
               className="w-28"
             />
-            <Button type="submit" variant="outline" disabled={!selectedActiveCriterionId}>
+            <Button type="submit" variant="outline" disabled={!selectedActiveCriterionId || isPending}>
               עדכן מיקום
             </Button>
           </form>
         )}
 
         {criterionAction === "move" && (
-          <form action={moveCriterionToCategory} className="flex flex-wrap items-center gap-3">
+          <form onSubmit={runAction(moveCriterionToCategory, "הקריטריון הועבר בהצלחה.")} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="criterionId" value={selectedActiveCriterionId} />
             <select
               name="targetCategoryId"
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm min-w-52"
-              defaultValue={selectedCategoryId || categories[0]?.id}
+              className="h-10 w-full min-w-0 sm:w-auto sm:min-w-52 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              defaultValue={selectedCategoryId || visibleCategories[0]?.id}
             >
-              {categories.map((category) => (
+              {visibleCategories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
@@ -313,17 +344,17 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
               defaultValue={1}
               className="w-28"
             />
-            <Button type="submit" variant="outline" disabled={!selectedActiveCriterionId}>
+            <Button type="submit" variant="outline" disabled={!selectedActiveCriterionId || isPending}>
               העבר
             </Button>
           </form>
         )}
 
         {criterionAction === "remove" && (
-          <form action={softDeleteCriterion} className="space-y-3">
+          <form onSubmit={runAction(softDeleteCriterion, "הקריטריון הוסר בהצלחה.")} className="space-y-3">
             <input type="hidden" name="criterionId" value={selectedActiveCriterionId} />
             <p className="text-sm text-muted-foreground">הקריטריון יוסר מהטפסים ויהיה ניתן לשחזור.</p>
-            <Button type="submit" variant="destructive" disabled={!selectedActiveCriterionId}>
+            <Button type="submit" variant="destructive" disabled={!selectedActiveCriterionId || isPending}>
               הסר קריטריון
             </Button>
           </form>
@@ -346,7 +377,7 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
                 const deletedCriteria = category.criteria.filter((criterion) => !criterion.isActive)
                 if (!deletedCriteria.length) return null
                 return (
-                  <optgroup key={category.id} label={category.name}>
+                  <optgroup key={category.id} label={getCategoryLabel(category)}>
                     {deletedCriteria.map((criterion) => (
                       <option key={criterion.id} value={criterion.id}>
                         {criterion.label}
@@ -358,14 +389,17 @@ export function FormEditorClient({ categories }: FormEditorClientProps) {
             </select>
 
             <div className="flex flex-wrap items-center gap-3">
-              <form action={restoreCriterion}>
+              <form onSubmit={runAction(restoreCriterion, "הקריטריון שוחזר בהצלחה.")}>
                 <input type="hidden" name="criterionId" value={selectedDeletedCriterionId} />
-                <Button type="submit" variant="outline" disabled={!selectedDeletedCriterionId}>
+                <Button type="submit" variant="outline" disabled={!selectedDeletedCriterionId || isPending}>
                   שחזר קריטריון
                 </Button>
               </form>
 
-              <form id={permanentDeleteFormId} action={permanentlyDeleteCriterion}>
+              <form
+                id={permanentDeleteFormId}
+                onSubmit={runAction(permanentlyDeleteCriterion, "הקריטריון נמחק לצמיתות.")}
+              >
                 <input type="hidden" name="criterionId" value={selectedDeletedCriterionId} />
               </form>
 

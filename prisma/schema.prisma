@@ -130,3 +130,23 @@ model Answer {
 
   @@unique([auditId, criterionId])
 }
+
+model AppLog {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  level          String   @default("INFO")
+  eventType      String
+  status         String
+  source         String
+  action         String
+  actorUserId    String?
+  actorEmail     String?
+  actorName      String?
+  entityType     String?
+  entityId       String?
+  message        String?
+  metadata       Json?
+
+  @@index([createdAt])
+  @@index([eventType, createdAt])
+}
