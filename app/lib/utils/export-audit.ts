@@ -485,7 +485,6 @@ class ExportAuditService {
     )
 
     let rowIndex = 1
-    let itemIndex = 1
 
     for (const category of context.categories) {
       let finalContent: TextRun[] = []
@@ -589,6 +588,7 @@ class ExportAuditService {
       } else {
         // --- לוגיקה רגילה לשאר הקטגוריות ---
         const content: TextRun[] = []
+        let itemIndex = 1
 
         for (const item of category.items) {
           if (content.length > 0) {
