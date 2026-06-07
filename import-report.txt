@@ -1,0 +1,19 @@
+{
+  "mode": "write",
+  "rows": 68,
+  "auditsReady": 68,
+  "criteriaColumns": 61,
+  "answersReady": 3594,
+  "hasErrors": false,
+  "canWrite": true
+}
+
+VALUE_SAMPLES
+- RADIO (3)
+  לא תקין
+  תקין
+  לא רלוונטי
+- SCORE (3)
+  תקין
+  תקין גבולי
+  לא תקין

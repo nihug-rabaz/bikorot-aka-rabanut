@@ -62,6 +62,7 @@ model VerificationToken {
 
 model Audit {
   id                String      @id @default(cuid())
+  externalId        String?     @unique
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
   status            String      @default("DRAFT")
