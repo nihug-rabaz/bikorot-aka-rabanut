@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   description: "טופס ביקורת מקיף",
   generator: "v0.app",
   icons: {
-    icon: "/hadracha-logo.png",
-    apple: "/hadracha-logo.png",
+    icon: "/icon-192.png",
+    apple: "/apple-icon.png",
   },
 }
 
